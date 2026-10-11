@@ -13,6 +13,49 @@
   --card-w: 64px;
   --card-h: 96px;
   color-scheme: dark;
+
+  /* Typografi */
+  --font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --fs-3xs: 0.65rem;
+  --fs-2xs: 0.7rem;
+  --fs-xs: 0.75rem;
+  --fs-sm-minus: 0.8rem;
+  --fs-sm: 0.85rem;
+  --fs-sm-plus: 0.9rem;
+  --fs-md-minus: 0.95rem;
+  --fs-md: 1rem;
+  --fs-md-plus: 1.05rem;
+  --fs-lg: 1.1rem;
+  --fs-xl: 1.2rem;
+  --fs-xl-plus: 1.25rem;
+  --fs-2xl: 2rem;
+  --fs-3xl: 3rem;
+  --fs-code: 3.4rem;
+  --fs-hero: 4rem;
+  /* Radier */
+  --r-2xs: 3px;
+  --r-xs: 4px;
+  --r-sm: 8px;
+  --r-sm-plus: 10px;
+  --r-md-minus: 12px;
+  --r-md: 14px;
+  --r-md-plus: 16px;
+  --r-lg: 18px;
+  --r-xl: 22px;
+  --r-pill: 999px;
+  /* Overflader og linjer */
+  --on-accent: #3a2a00;
+  --surface-btn: rgba(255, 255, 255, 0.16);
+  --line-strong: rgba(255, 255, 255, 0.35);
+  --line: rgba(255, 255, 255, 0.25);
+  --line-sheet: rgba(255, 255, 255, 0.15);
+  --line-soft: rgba(255, 255, 255, 0.1);
+  --field: rgba(255, 255, 255, 0.95);
+  --sheet: #13402c;
+  --scrim: rgba(0, 0, 0, 0.6);
+  --toast-bg: rgba(0, 0, 0, 0.82);
+  --toast-error: rgba(183, 28, 28, 0.92);
+  --danger: #b71c1c;
 }
 
 * {
@@ -68,17 +111,17 @@ input {
 }
 
 .small {
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
 }
 
 /* ---------- Knapper ---------- */
 
 .btn {
   border: 0;
-  border-radius: 14px;
+  border-radius: var(--r-md);
   padding: 12px 18px;
   font-weight: 700;
-  background: rgba(255, 255, 255, 0.16);
+  background: var(--surface-btn);
   transition:
     transform 0.1s,
     background 0.2s;
@@ -95,35 +138,35 @@ input {
 
 .btn.primary {
   background: var(--accent);
-  color: #3a2a00;
+  color: var(--on-accent);
 }
 
 .btn.big {
   width: 100%;
   padding: 16px;
-  font-size: 1.1rem;
+  font-size: var(--fs-lg);
 }
 
 .btn.small {
   padding: 6px 12px;
-  font-size: 0.85rem;
-  border-radius: 10px;
+  font-size: var(--fs-sm);
+  border-radius: var(--r-sm-plus);
 }
 
 .btn.tiny {
   padding: 3px 8px;
-  font-size: 0.75rem;
-  border-radius: 8px;
+  font-size: var(--fs-xs);
+  border-radius: var(--r-sm);
 }
 
 .btn.ghost {
   background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.35);
+  border: 1px solid var(--line-strong);
 }
 
 .btn.uno {
   background: var(--red);
-  font-size: 1.2rem;
+  font-size: var(--fs-xl);
   padding: 12px 26px;
   box-shadow: 0 4px 0 #8e1b18;
 }
@@ -134,7 +177,7 @@ input {
 
 .btn.catch {
   background: var(--accent);
-  color: #3a2a00;
+  color: var(--on-accent);
   padding: 6px 12px;
   animation: pulse 0.6s infinite alternate;
 }
@@ -157,7 +200,7 @@ input {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.35);
+  border: 1px solid var(--line-strong);
   background: transparent;
   font-weight: 700;
 }
@@ -176,7 +219,7 @@ input {
 }
 
 .logo.small {
-  font-size: 1.2rem;
+  font-size: var(--fs-xl);
 }
 
 .home {
@@ -190,7 +233,7 @@ input {
 }
 
 .home .logo {
-  font-size: 4rem;
+  font-size: var(--fs-hero);
   text-align: center;
   text-shadow: 0 4px 0 rgba(0, 0, 0, 0.3);
 }
@@ -205,7 +248,7 @@ input {
   background: rgba(229, 57, 53, 0.25);
   border: 1px solid rgba(229, 57, 53, 0.6);
   padding: 10px 14px;
-  border-radius: 12px;
+  border-radius: var(--r-md-minus);
   margin: 0;
 }
 
@@ -220,11 +263,11 @@ input {
 .join-row input {
   width: 100%;
   padding: 14px;
-  border-radius: 14px;
+  border-radius: var(--r-md);
   border: 0;
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--field);
   color: #111;
-  font-size: 1.1rem;
+  font-size: var(--fs-lg);
 }
 
 .join-row {
@@ -244,7 +287,7 @@ input {
   align-items: center;
   gap: 10px;
   color: var(--muted);
-  font-size: 0.9rem;
+  font-size: var(--fs-sm-plus);
   margin-top: 8px;
 }
 
@@ -253,7 +296,7 @@ input {
   content: '';
   flex: 1;
   height: 1px;
-  background: rgba(255, 255, 255, 0.25);
+  background: var(--line);
 }
 
 .center {
@@ -293,7 +336,7 @@ input {
 .install-hint {
   margin: 0;
   text-align: center;
-  font-size: 0.9rem;
+  font-size: var(--fs-sm-plus);
   color: var(--muted);
 }
 
@@ -316,9 +359,9 @@ input {
 .code-chip {
   background: var(--panel);
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 5px 12px;
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
 }
 
 .code-chip b {
@@ -337,17 +380,17 @@ input {
 .code-box {
   text-align: center;
   background: var(--panel);
-  border-radius: 18px;
+  border-radius: var(--r-lg);
   padding: 16px;
 }
 
 .code-box .label {
   color: var(--muted);
-  font-size: 0.9rem;
+  font-size: var(--fs-sm-plus);
 }
 
 .big-code {
-  font-size: 3.4rem;
+  font-size: var(--fs-code);
   font-weight: 900;
   letter-spacing: 12px;
   margin: 6px 0 10px;
@@ -356,13 +399,13 @@ input {
 
 .panel {
   background: var(--panel);
-  border-radius: 18px;
+  border-radius: var(--r-lg);
   padding: 14px 16px;
 }
 
 .panel h2 {
   margin: 0 0 10px;
-  font-size: 1rem;
+  font-size: var(--fs-md);
 }
 
 .roster {
@@ -392,7 +435,7 @@ input {
 .x {
   background: none;
   border: 0;
-  font-size: 1rem;
+  font-size: var(--fs-md);
   opacity: 0.7;
   padding: 4px 8px;
 }
@@ -470,7 +513,7 @@ input {
   gap: 2px;
   min-width: 84px;
   padding: 8px 6px 6px;
-  border-radius: 14px;
+  border-radius: var(--r-md);
   background: var(--panel);
   border: 2px solid transparent;
   transition:
@@ -488,7 +531,7 @@ input {
 }
 
 .oname {
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
   font-weight: 700;
   max-width: 84px;
   overflow: hidden;
@@ -506,7 +549,7 @@ input {
 .mini-back {
   width: 12px;
   height: 17px;
-  border-radius: 3px;
+  border-radius: var(--r-2xs);
   background: var(--black);
   border: 1.5px solid #fff;
   box-shadow: inset 0 0 0 2px var(--red);
@@ -517,9 +560,9 @@ input {
   top: -6px;
   right: -6px;
   background: var(--red);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 2px 7px;
-  font-size: 0.7rem;
+  font-size: var(--fs-2xs);
   font-weight: 900;
   transform: rotate(8deg);
 }
@@ -572,14 +615,14 @@ input {
   left: 50%;
   transform: translateX(-50%);
   background: rgba(0, 0, 0, 0.55);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 1px 8px;
-  font-size: 0.75rem;
+  font-size: var(--fs-xs);
 }
 
 .discard {
   position: relative;
-  border-radius: 14px;
+  border-radius: var(--r-md);
   padding: 6px;
   box-shadow:
     0 0 0 4px var(--cur),
@@ -610,21 +653,21 @@ input {
 }
 
 .dir {
-  font-size: 2rem;
+  font-size: var(--fs-2xl);
   opacity: 0.6;
 }
 
 .status {
   text-align: center;
   font-weight: 700;
-  font-size: 1.05rem;
+  font-size: var(--fs-md-plus);
   padding: 4px 12px;
   min-height: 1.6em;
 }
 
 .status.mine {
   color: var(--accent);
-  font-size: 1.25rem;
+  font-size: var(--fs-xl-plus);
 }
 
 .actions {
@@ -718,11 +761,11 @@ input {
   left: 50%;
   transform: translateX(-50%);
   background: var(--accent);
-  color: #3a2a00;
-  font-size: 0.65rem;
+  color: var(--on-accent);
+  font-size: var(--fs-3xs);
   font-weight: 900;
   padding: 1px 6px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
 }
 
 .hand:empty {
@@ -734,7 +777,7 @@ input {
   margin: 6px 16px 0;
   padding: 0;
   text-align: center;
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
   color: var(--muted);
   min-height: 2.6em;
 }
@@ -742,7 +785,7 @@ input {
 .ticker li:first-child {
   color: var(--ink);
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: var(--fs-md-minus);
 }
 
 .ticker.flash li:first-child {
@@ -862,7 +905,7 @@ input {
   --card-w: 20px;
   --card-h: 30px;
   border-width: 1.5px;
-  border-radius: 4px;
+  border-radius: var(--r-xs);
   margin-right: -6px;
   box-shadow: none;
 }
@@ -881,7 +924,7 @@ input {
 .overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--scrim);
   display: grid;
   place-items: center;
   padding: 16px;
@@ -896,9 +939,9 @@ input {
 }
 
 .sheet {
-  background: #13402c;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 22px;
+  background: var(--sheet);
+  border: 1px solid var(--line-sheet);
+  border-radius: var(--r-xl);
   padding: 20px;
   width: 100%;
   max-width: 440px;
@@ -923,11 +966,11 @@ input {
 
 .swatch {
   border: 0;
-  border-radius: 16px;
+  border-radius: var(--r-md-plus);
   height: 90px;
   background: var(--bg);
   font-weight: 800;
-  font-size: 1.1rem;
+  font-size: var(--fs-lg);
   text-transform: capitalize;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
@@ -937,7 +980,7 @@ input {
 }
 
 .result .confetti {
-  font-size: 3rem;
+  font-size: var(--fs-3xl);
 }
 
 .result p {
@@ -946,7 +989,7 @@ input {
 
 .champion {
   background: rgba(255, 213, 74, 0.2);
-  border-radius: 12px;
+  border-radius: var(--r-md-minus);
   padding: 10px;
   font-weight: 700;
 }
@@ -958,7 +1001,7 @@ input {
 }
 
 .scores th {
-  font-size: 0.75rem;
+  font-size: var(--fs-xs);
   color: var(--muted);
   font-weight: 600;
   padding: 4px;
@@ -966,7 +1009,7 @@ input {
 
 .scores td {
   padding: 6px 4px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid var(--line-soft);
 }
 
 .scores td:first-child {
@@ -979,7 +1022,7 @@ input {
 .scores .avatar {
   width: 26px;
   height: 26px;
-  font-size: 0.8rem;
+  font-size: var(--fs-sm-minus);
 }
 
 .scores tr.win td {
@@ -1030,17 +1073,17 @@ input {
 }
 
 .toast {
-  background: rgba(0, 0, 0, 0.82);
+  background: var(--toast-bg);
   padding: 8px 14px;
-  border-radius: 12px;
-  font-size: 0.9rem;
+  border-radius: var(--r-md-minus);
+  font-size: var(--fs-sm-plus);
   text-align: center;
   animation: fadein 0.2s;
   transition: opacity 0.4s;
 }
 
 .toast.error {
-  background: rgba(183, 28, 28, 0.92);
+  background: var(--toast-error);
 }
 
 .toast.out {
@@ -1052,7 +1095,7 @@ input {
   bottom: 0;
   left: 0;
   right: 0;
-  background: #b71c1c;
+  background: var(--danger);
   text-align: center;
   padding: 10px calc(env(safe-area-inset-bottom) + 10px);
   font-weight: 700;
