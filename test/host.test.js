@@ -184,3 +184,12 @@ test('en bot kan fjernes, og gemte værtsdata uden bot-felt kan stadig åbnes', 
   );
   assert.equal(restored.settings.multiPlay, true, 'manglende husregler får standardværdi');
 });
+
+test('point bevares, når en spiller fjernes og kommer tilbage', () => {
+  const { host } = makeHost();
+  join(host, 'c1', 'Far');
+  host.scores.c1 = 120;
+  host.act('h', { type: 'kick', targetId: 'c1' });
+  join(host, 'c1', 'Far');
+  assert.equal(host.viewFor('h').roster.find((p) => p.id === 'c1').score, 120);
+});

@@ -130,6 +130,7 @@ function startClient(code, resuming = false) {
     onError: (err) => {
       if (S.role !== 'client') return;
       if (err === 'not-found' && !resuming && !S.view) {
+        S.lastCode = code;
         leaveGame(`Fandt intet spil med koden ${code}. Tjek koden og prøv igen.`);
         return;
       }
@@ -156,7 +157,16 @@ function handleMessage(msg) {
   }
 }
 
+// Spærrer kort tid efter et træk, så et hurtigt dobbelttryk ikke bliver til Træk + Pas.
+const TAP_GUARD_MS = 400;
+const GUARDED = new Set(['play', 'draw', 'pass']);
+let guardUntil = 0;
+
 function send(action) {
+  if (GUARDED.has(action.type)) {
+    if (Date.now() < guardUntil) return;
+    guardUntil = Date.now() + TAP_GUARD_MS;
+  }
   if (S.role === 'host') S.host.act(S.me, action);
   else if (S.conn) S.conn.send({ t: 'action', action });
   else toast('Ingen forbindelse – prøver igen…', 'error');
@@ -304,7 +314,7 @@ function render() {
 
 function renderHome() {
   const session = load(KEYS.session);
-  const code = normalizeCode(params.get('rum'));
+  const code = normalizeCode(params.get('rum')) || S.lastCode || '';
   return `<main class="home">
     <h1 class="logo">UNO<span>isk</span></h1>
     <p class="tagline">UNO for hele familien – hver på sin telefon</p>
@@ -579,7 +589,15 @@ async function share() {
 
 const actions = {
   create() {
-    if (readName()) startHost(makeCode());
+    if (!readName()) return;
+    const session = load(KEYS.session);
+    if (
+      session &&
+      !confirm(`Du har et spil i gang (${session.code}). Vil du starte et nyt? Det gamle spil forsvinder.`)
+    )
+      return;
+    save(KEYS.host, null);
+    startHost(makeCode());
   },
   join() {
     if (!readName()) return;
@@ -591,8 +609,14 @@ const actions = {
   resume() {
     const session = load(KEYS.session);
     if (!session || !readName()) return;
-    if (session.role === 'host') startHost(session.code, load(KEYS.host));
-    else startClient(session.code, true);
+    if (session.role === 'client') return startClient(session.code, true);
+    const saved = load(KEYS.host);
+    if (!saved) {
+      save(KEYS.session, null);
+      S.notice = 'Det gemte spil kunne ikke findes på denne telefon. Opret et nyt spil.';
+      return render();
+    }
+    startHost(session.code, saved);
   },
   leave() {
     const isHost = S.role === 'host';
@@ -702,12 +726,21 @@ app.addEventListener('change', (e) => {
 app.addEventListener('keydown', (e) => {
   if (e.key !== 'Enter') return;
   if (e.target.id === 'code') actions.join();
-  if (e.target.id === 'name')
-    (normalizeCode(document.getElementById('code')?.value).length === 4 ? actions.join : actions.create)();
+  // Enter i navnefeltet må aldrig oprette et spil ved et uheld – gå videre til koden i stedet.
+  if (e.target.id === 'name') {
+    if (normalizeCode(document.getElementById('code')?.value).length === 4) actions.join();
+    else document.getElementById('code')?.focus();
+  }
 });
 
 app.addEventListener('input', (e) => {
-  if (e.target.id === 'code') e.target.value = normalizeCode(e.target.value);
+  if (e.target.id === 'code') {
+    e.target.value = normalizeCode(e.target.value);
+    // Har man skrevet en kode, er "Deltag" det oplagte næste skridt.
+    const hasCode = e.target.value.length > 0;
+    app.querySelector('[data-act=join]')?.classList.toggle('primary', hasCode);
+    app.querySelector('[data-act=create]')?.classList.toggle('primary', !hasCode && !load(KEYS.session));
+  }
 });
 
 document.addEventListener('visibilitychange', () => {

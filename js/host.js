@@ -146,7 +146,7 @@ export class Host {
   removePlayer(playerId, broadcast = true) {
     this.roster = this.roster.filter((p) => p.id !== playerId);
     this.conns.delete(playerId);
-    delete this.scores[playerId];
+    // Pointene bevares, så en spiller, hvis telefon døde, får dem igen ved genindtræden.
     if (this.game) {
       const before = this.game.phase;
       G.removePlayer(this.game, playerId);
