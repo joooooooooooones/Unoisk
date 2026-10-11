@@ -29,6 +29,13 @@ export class Host {
     if (self && validAvatar(me.emoji)) self.emoji = me.emoji;
     this.settings = { ...HOST_DEFAULTS, ...saved?.settings };
     this.championId = saved?.championId ?? null;
+    this.championName = saved?.championName ?? null;
+    if (!this.championId) {
+      // Gamle gemte data uden championId: udled vinderen af pointene.
+      const top = Object.entries(saved?.scores ?? {}).find(([, pts]) => pts >= this.settings.target);
+      if (top) this.setChampion(top[0]);
+    }
+    this.catchTarget = null;
     this.scores = saved?.scores ?? {};
     this.game = saved?.game ?? null;
     this.round = saved?.round ?? 0;
@@ -41,8 +48,14 @@ export class Host {
   }
 
   snapshot() {
-    const { code, hostId, roster, settings, scores, game, round, championId } = this;
-    return { code, hostId, roster, settings, scores, game, round, championId };
+    const { code, hostId, roster, settings, scores, game, round, championId, championName } = this;
+    return { code, hostId, roster, settings, scores, game, round, championId, championName };
+  }
+
+  setChampion(id) {
+    this.championId = id;
+    // Navnet huskes, så vinderen kan vises, selv om hun forlader spillet bagefter.
+    this.championName = this.roster.find((p) => p.id === id)?.name ?? this.championName ?? 'Vinderen';
   }
 
   addConnection(conn) {
@@ -113,6 +126,7 @@ export class Host {
         if (action.resetScores) {
           this.scores = {};
           this.championId = null;
+          this.championName = null;
           this.round = 0;
         } else if (this.championId) {
           throw new G.GameError('Spillet er slut – start et nyt spil');
@@ -169,7 +183,7 @@ export class Host {
     if (phaseBefore === 'playing' && this.game.phase === 'roundOver') {
       const w = this.game.winnerId;
       this.scores[w] = (this.scores[w] ?? 0) + this.game.points;
-      if (this.scores[w] >= this.settings.target) this.championId = w;
+      if (this.scores[w] >= this.settings.target) this.setChampion(w);
     }
   }
 
@@ -198,6 +212,7 @@ export class Host {
       round: this.round,
       settings: this.settings,
       championId: this.championId,
+      champion: this.championId ? { id: this.championId, name: this.championName } : null,
       roster: this.roster.map((p) => ({
         id: p.id,
         name: p.name,
@@ -241,9 +256,13 @@ export class Host {
     if (!g || g.phase !== 'playing') return;
     const current = G.currentPlayer(g).id;
     if (this.isBot(current)) this.later('turn', between(BOT_THINK_MS), () => this.botTurn(current));
-    if (g.unoTarget && !this.timers.has('catch')) {
+    // Ny spiller at fange → start en ny frist; en gammel frist for en anden spiller ryddes.
+    if (g.unoTarget !== this.catchTarget) {
+      this.catchTarget = g.unoTarget;
+      if (this.timers.has('catch')) this.cancel(this.timers.get('catch'));
+      this.timers.delete('catch');
       const target = g.unoTarget;
-      this.later('catch', between(BOT_CATCH_MS), () => this.botCatch(target));
+      if (target) this.later('catch', between(BOT_CATCH_MS), () => this.botCatch(target));
     }
   }
 

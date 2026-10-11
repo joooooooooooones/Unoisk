@@ -51,6 +51,7 @@ const S = {
   online: false,
   notice: '',
   picking: null,
+  selectedAt: 0,
   selected: [], // kort valgt til at blive lagt sammen (samme tal/symbol)
   showRules: false,
   showInvite: false,
@@ -168,7 +169,7 @@ function handleMessage(msg) {
 
 // Spærrer kort tid efter et træk, så et hurtigt dobbelttryk ikke bliver til Træk + Pas.
 const TAP_GUARD_MS = 400;
-const GUARDED = new Set(['play', 'draw', 'pass']);
+const GUARDED = new Set(['play', 'draw', 'pass', 'addBot']);
 let guardUntil = 0;
 
 function send(action) {
@@ -256,7 +257,7 @@ const avatar = (p, cls = '') =>
     : `<span class="avatar ${cls}" style="--avatar:${avatarColor(p.id)}" aria-hidden="true">${esc(p.name.slice(0, 1).toUpperCase())}</span>`;
 const genitive = (name) => (/[sxz]$/i.test(name) ? `${name}'` : `${name}s`);
 
-const TARGET_LABELS = { 100: 'Hurtigt', 200: 'Kort', 300: 'Mellem', 500: 'Officielt' };
+const TARGET_LABELS = { 100: 'Hurtigt', 200: 'Kortere', 300: 'Mellem', 500: 'Officielt' };
 
 const SYMBOLS = { skip: '⊘', reverse: '⇄', draw2: '+2', wild: '', wild4: '+4' };
 const COLOR_ORDER = [...COLORS, null];
@@ -489,12 +490,12 @@ function renderLobby(v) {
       <div class="segmented" role="radiogroup" aria-label="Pointmål">
         ${TARGETS.map(
           (t) =>
-            `<button type="button" role="radio" aria-checked="${s.target === t}" class="${s.target === t ? 'on' : ''}" data-act="target" data-target="${t}" ${isHost ? '' : 'disabled'}>
+            `<button type="button" role="radio" aria-checked="${(s.target ?? 500) === t}" class="${(s.target ?? 500) === t ? 'on' : ''}" data-act="target" data-target="${t}" ${isHost ? '' : 'disabled'}>
               <b>${t}</b><small>${TARGET_LABELS[t]}</small>
             </button>`,
         ).join('')}
       </div>
-      <p class="hint">Den første, der når ${s.target} point, vinder hele spillet.</p>
+      <p class="hint">Den første, der når ${s.target ?? 500} point, vinder hele spillet.</p>
     </section>
     <section class="panel">
       <h2>Husregler</h2>
@@ -526,11 +527,10 @@ function renderGame(v) {
   const opponents = others
     .map((p, i) => {
       const connected = roster[p.id]?.connected ?? false;
-      const catchable = g.unoTarget === p.id && g.inRound && g.phase === 'playing';
       const turn = p.id === g.currentId;
       const label = `${p.name}: ${p.count} kort${turn ? ', har turen' : ''}${connected ? '' : ', offline'}`;
       return `${i > 0 ? `<span class="order" aria-hidden="true">${g.direction === 1 ? '›' : '‹'}</span>` : ''}
-      <div class="opp ${turn ? 'turn' : ''} ${connected ? '' : 'offline'}" aria-label="${esc(label)}">
+      <div class="opp ${turn ? 'turn' : ''} ${connected ? '' : 'offline'}" role="group" aria-label="${esc(label)}">
         <div class="opp-face">
           ${avatar(roster[p.id] ?? p)}
           <span class="count" aria-hidden="true">${p.count}</span>
@@ -538,7 +538,6 @@ function renderGame(v) {
         </div>
         <div class="oname" aria-hidden="true">${esc(p.name)}</div>
         ${connected ? '' : '<div class="ostate" aria-hidden="true">offline</div>'}
-        ${catchable ? `<button class="btn catch" data-act="catch" data-id="${esc(p.id)}">Fang!</button>` : ''}
         ${isHost && !connected ? `<button class="btn tiny" data-act="kick" data-id="${esc(p.id)}">Fjern</button>` : ''}
       </div>`;
     })
@@ -578,7 +577,10 @@ function renderGame(v) {
 
   const canDraw = myTurn && !g.hasDrawn && !selecting;
   const mustDraw = canDraw && (g.playable.length === 0 || g.pendingDraw > 0);
-  const showUno = g.inRound && g.phase === 'playing' && meInRound && meInRound.count <= 2 && !meInRound.saidUno;
+  // UNO kan også siges i egen tur, når de valgte ens kort efterlader ét kort.
+  const landsOnOne = selecting && meInRound && meInRound.count - S.selected.length === 1;
+  const showUno =
+    g.inRound && g.phase === 'playing' && meInRound && !meInRound.saidUno && (meInRound.count <= 2 || landsOnOne);
   const iAmCaught = g.unoTarget === S.me;
   const caught = g.unoTarget && g.unoTarget !== S.me && g.inRound && g.phase === 'playing' ? roster[g.unoTarget] : null;
 
@@ -645,8 +647,8 @@ function renderRoundOver(v) {
   const target = v.settings.target ?? 500;
   const winner = v.roster.find((p) => p.id === g.winnerId) ?? g.players.find((p) => p.id === g.winnerId);
   const rows = [...v.roster].sort((a, b) => b.score - a.score);
-  const champion =
-    v.championId !== undefined ? v.roster.find((p) => p.id === v.championId) : rows.find((p) => p.score >= target);
+  // Vinderen af hele spillet kommer fra værten (også hvis hun har forladt spillet bagefter).
+  const champion = v.champion !== undefined ? v.champion : rows.find((p) => p.score >= target);
   const left = Object.fromEntries(g.players.map((p) => [p.id, p.hand ?? []]));
 
   return `<div class="overlay" role="dialog" aria-modal="true" aria-labelledby="result-title">
@@ -694,7 +696,7 @@ function renderInvite(v) {
       ${qrSVG(shareLink(v.code))}
       <p class="muted">Scan med kameraet, eller skriv koden på forsiden</p>
       <div class="big-code">${esc(v.code)}</div>
-      <p class="hint">Nye spillere kommer med, når den næste runde starter.</p>
+      ${v.game ? '<p class="hint">Nye spillere kommer med, når den næste runde starter.</p>' : ''}
       <button class="btn primary" data-act="share">Del link</button>
       <button class="btn ghost" data-act="close-invite">Luk</button>
     </div>
@@ -773,6 +775,14 @@ const actions = {
     if (!readName()) return;
     const code = normalizeCode(document.getElementById('code')?.value);
     if (code.length !== 4) return toast('Koden er 4 bogstaver', 'error');
+    const session = load(KEYS.session);
+    if (
+      session?.role === 'host' &&
+      session.code !== code &&
+      !confirm(`Du er vært for spillet ${session.code}. Deltager du i et andet spil, forsvinder dit eget. Fortsæt?`)
+    )
+      return;
+    if (session?.role === 'host' && session.code !== code) save(KEYS.host, null);
     S.notice = '';
     startClient(code);
   },
@@ -841,9 +851,11 @@ const actions = {
 
     if (S.selected.length) {
       const first = g.hand.find((c) => c.id === S.selected[0]);
-      if (id === first.id)
-        return actions['play-selected'](); // tryk igen på kortet = læg
-      else if (S.selected.includes(id)) S.selected = S.selected.filter((x) => x !== id);
+      if (id === first.id) {
+        // Tryk igen på kortet = læg. Et hurtigt dobbelttryk (under 300 ms) tæller ikke.
+        if (Date.now() - S.selectedAt < 300) return;
+        return actions['play-selected']();
+      } else if (S.selected.includes(id)) S.selected = S.selected.filter((x) => x !== id);
       else if (card.value === first.value) S.selected.push(id);
       else toast('Vælg kort med samme tal eller symbol');
       return render();
@@ -857,6 +869,7 @@ const actions = {
     if (twins.length) {
       // Der er flere ens på hånden – lad spilleren vælge, hvor mange der skal lægges.
       S.selected = [id];
+      S.selectedAt = Date.now();
       render();
     } else if (card.color === null) {
       S.picking = id;
@@ -977,8 +990,7 @@ if ('serviceWorker' in navigator) {
 const session = load(KEYS.session);
 const linkCode = normalizeCode(params.get('rum'));
 if (session && S.name && (!linkCode || linkCode === session.code)) {
-  if (session.role === 'host') startHost(session.code, load(KEYS.host));
-  else startClient(session.code, true);
+  actions.resume(); // samme tjek som "Fortsæt": intet tomt spil, hvis de gemte data mangler
 } else {
   render();
   document.getElementById(S.name && linkCode ? 'code' : 'name')?.focus();

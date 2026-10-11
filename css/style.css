@@ -464,6 +464,20 @@ input {
 
 /* ---------- Lobby ---------- */
 
+.lobby > .btn.primary.big,
+.lobby > .waiting {
+  position: sticky;
+  bottom: calc(var(--sp-3) + env(safe-area-inset-bottom));
+  z-index: 2;
+}
+
+.lobby > .waiting {
+  background: var(--sheet);
+  border-radius: var(--r-pill);
+  padding: 10px 16px;
+  box-shadow: var(--shadow-2);
+}
+
 .lobby {
   display: flex;
   flex-direction: column;
@@ -704,6 +718,7 @@ input {
   flex: 1;
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr); /* hånden må ikke gøre bordet bredere end skærmen */
   min-height: 0;
 }
 
@@ -745,7 +760,7 @@ body:has(.game) #app {
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  width: clamp(52px, 15.5vw, 66px);
+  width: clamp(48px, 15vw, 66px);
   padding: 6px 2px 4px;
   border-radius: var(--r-md);
   transition: background 0.2s;

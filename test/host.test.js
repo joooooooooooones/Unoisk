@@ -254,3 +254,37 @@ test('avatar: gyldige emoji gemmes, ugyldige ignoreres, gamle data uden avatar v
   assert.equal(restored.viewFor('h').roster[1].emoji, '🦁');
   assert.equal(restored.settings.target, 500);
 });
+
+test('vinderen af hele spillet kan forlade det, uden at spillet går i stå', () => {
+  const { host } = makeHost();
+  join(host, 'c1', 'Far');
+  host.act('h', { type: 'settings', settings: { target: 100 } });
+  host.act('h', { type: 'start' });
+  winRound(host, 'c1', { id: 9010, color: null, value: 'wild' });
+  host.act('h', { type: 'start' });
+  winRound(host, 'c1', { id: 9011, color: null, value: 'wild' });
+  assert.equal(host.championId, 'c1');
+  host.removePlayer('c1');
+  assert.deepEqual(host.viewFor('h').champion, { id: 'c1', name: 'Far' }, 'vinderens navn huskes');
+  assert.throws(() => host.apply('h', { type: 'start' }), /Spillet er slut/);
+  host.act('h', { type: 'addBot' });
+  host.act('h', { type: 'start', resetScores: true });
+  assert.equal(host.viewFor('h').champion, null);
+});
+
+test('gamle gemte data, hvor nogen allerede har nået 500, giver en vinder', () => {
+  const saved = {
+    code: 'X',
+    hostId: 'h',
+    roster: [
+      { id: 'h', name: 'Mor' },
+      { id: 'c1', name: 'Far' },
+    ],
+    scores: { c1: 512 },
+    game: null,
+    round: 4,
+  };
+  const host = new Host({ code: 'X', me: { id: 'h', name: 'Mor' }, saved });
+  assert.equal(host.championId, 'c1');
+  assert.equal(host.viewFor('h').champion.name, 'Far');
+});
