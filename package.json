@@ -1,0 +1,10 @@
+{
+  "name": "unoisk",
+  "private": true,
+  "type": "module",
+  "description": "UNO for hele familien – hver på sin egen telefon",
+  "scripts": {
+    "start": "npx --yes serve -l 8080 .",
+    "test": "node --test test/*.test.js"
+  }
+}
