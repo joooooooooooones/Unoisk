@@ -334,3 +334,36 @@ test('UNO sagt for tidligt tæller ikke, hvis man ender med flere kort', () => {
   G.applyAction(s, 'p0', { type: 'play', cardId: s.players[0].hand[0].id });
   assert.equal(s.players[0].saidUno, false);
 });
+
+// Håndregnet: Mattel-reglen "If the last card played in a hand is a Draw Two or Wild Draw Four card,
+// the next player must draw the 2 or 4 cards respectively. These cards are counted when the points are totalled."
+test('slutter runden på +2 med stabling, trækker næste spiller og kortene tæller med', () => {
+  const s = setup([[c('red', 'draw2')], [c('blue', '7')], [c('green', '3')]], c('red', '5'), { stacking: true });
+  s.drawPile = [c('yellow', '9'), c('green', '4')]; // trækkes i rækkefølgen grøn 4, gul 9
+  G.applyAction(s, 'p0', { type: 'play', cardId: s.players[0].hand[0].id });
+  assert.equal(s.phase, 'roundOver');
+  assert.equal(s.players[1].hand.length, 3);
+  // Far: blå 7 + grøn 4 + gul 9 = 20, Ida: grøn 3 = 3 → 23 point (før rettelsen: 7 + 3 = 10)
+  assert.equal(s.points, 23);
+  assert.equal(s.pendingDraw, 0);
+});
+
+test('samme hånd uden stabling giver de samme point', () => {
+  const s = setup([[c('red', 'draw2')], [c('blue', '7')], [c('green', '3')]], c('red', '5'));
+  s.drawPile = [c('yellow', '9'), c('green', '4')];
+  G.applyAction(s, 'p0', { type: 'play', cardId: s.players[0].hand[0].id });
+  assert.equal(s.points, 23);
+});
+
+test('slutter runden på en stablet +2, trækker næste hele bunken', () => {
+  const s = setup([[c('red', 'draw2'), c('red', '1')], [c('blue', 'draw2')], [c('green', '3')]], c('red', '5'), {
+    stacking: true,
+  });
+  s.drawPile = [c('red', '2'), c('red', '2'), c('red', '2'), c('red', '2')];
+  G.applyAction(s, 'p0', { type: 'play', cardId: s.players[0].hand[0].id });
+  G.applyAction(s, 'p1', { type: 'play', cardId: s.players[1].hand[0].id }); // Far vinder på en stablet +2 (i alt +4)
+  assert.equal(s.winnerId, 'p1');
+  assert.equal(s.players[2].hand.length, 5); // Ida: grøn 3 + 4 × rød 2
+  // Mor: rød 1 = 1, Ida: 3 + 4·2 = 11 → 12 point (før rettelsen: 1 + 3 = 4)
+  assert.equal(s.points, 12);
+});

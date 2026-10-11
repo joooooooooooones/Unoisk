@@ -242,7 +242,17 @@ function play(state, player, cardIds, chosenColor) {
     advance(state, 1);
   }
 
-  if (player.hand.length === 0) finishRound(state, player);
+  if (player.hand.length === 0) {
+    // Officiel regel: slutter runden på +2/+4, trækker næste spiller kortene, og de tæller med i point.
+    // Med stabling gælder det hele den opsparede bunke (husregel – samme princip).
+    if (state.pendingDraw > 0) {
+      const victim = state.players[state.current];
+      const drawn = drawCards(state, victim, state.pendingDraw);
+      log(state, `${victim.name} trækker ${drawn.length} kort`);
+      state.pendingDraw = 0;
+    }
+    finishRound(state, player);
+  }
 }
 
 function finishRound(state, winner) {
