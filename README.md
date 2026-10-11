@@ -24,11 +24,14 @@ På iPhone: åbn linket i Safari, tryk **Del** og vælg **Føj til hjemmeskærm*
 
 ## Sådan spiller I
 
-- **Værten** (den der opretter spillet) trykker **Opret nyt spil** og deler koden eller linket (**Del link**).
-- De andre trykker **Deltag** med koden. Når alle er med, trykker værten **Start spil**.
+- Skriv dit navn og vælg en figur (🦊 🐻 🦄 …), så man kan kende hinanden.
+- **Værten** (den der opretter spillet) trykker **Opret nyt spil**. De andre **scanner QR-koden** i lobbyen med kameraet – eller skriver koden på 4 bogstaver og trykker **Deltag**. **Del link** sender linket via fx Messenger.
+- Er I få, kan værten trykke **🤖 Tilføj computerspiller**. Man kan også øve sig alene mod computeren.
+- Værten vælger **spillets længde**: 100, 200, 300 eller 500 point (officielt). Når alle er med, trykker værten **Start spil**.
 - Læg et kort med samme farve, tal eller symbol. Kort, der kan lægges, lyser op. Kan du ikke lægge noget, så tryk på bunken.
-- Tryk **UNO!** når du har to kort tilbage (eller lige efter du har lagt det næstsidste). Glemmer du det, kan de andre trykke **Fang!**, og så trækker du 2 kort.
-- Den første uden kort vinder runden og får point for de andres kort. Først til 500 point vinder.
+- Tryk **UNO!** når du har to kort tilbage (eller lige efter du har lagt det næstsidste). Lægger du flere ens ned til ét kort, kan du trykke UNO! i din tur, før du lægger. Glemmer du det, kan de andre trykke **Fang!**, og så trækker du 2 kort.
+- Den første uden kort vinder runden og får point for de andres kort. Slutter runden på et +2/+4, trækker næste spiller kortene først, og de tæller med (officiel regel). Først til pointmålet vinder hele spillet.
+- Tryk på **Kode ABCD** øverst for at vise QR-koden igen – nye spillere kommer med fra næste runde.
 
 Husregler, som værten kan slå til i lobbyen:
 
@@ -40,7 +43,7 @@ Godt at vide:
 
 - Værtens telefon *er* spillet, så den skal holde siden åben. Appen prøver at holde skærmen tændt.
 - Mister en spiller forbindelsen (skærmen slukker, siden lukkes), kommer de automatisk tilbage med de samme kort, når de åbner siden igen. Det gælder også værten.
-- Er nogens telefon død, kan værten trykke **Fjern** ved spilleren, så spillet kan fortsætte.
+- Er nogens telefon død, kan værten trykke **Fjern** ved spilleren, så spillet kan fortsætte. Pointene huskes, hvis spilleren kommer tilbage.
 - Nye spillere kan komme med mellem to runder.
 
 ## Udvikling
@@ -49,7 +52,7 @@ Ingen build-trin – bare HTML, CSS og JavaScript-moduler.
 
 ```sh
 npm start   # starter en lokal server på http://localhost:8080
-npm test    # kører testene af spillereglerne (kræver Node 20+)
+npm test    # regler, point, vært og computerspillere (kræver Node 20+)
 ```
 
 Åbn `http://localhost:8080/?lokal` i flere faner for at teste uden internet: så snakker fanerne sammen via `BroadcastChannel` i stedet for WebRTC.
@@ -57,8 +60,13 @@ npm test    # kører testene af spillereglerne (kræver Node 20+)
 | Fil | Indhold |
 | --- | --- |
 | `js/game.js` | Spillereglerne (ren logik, ingen DOM) |
-| `js/host.js` | Værten: spillerliste, point, og hvad hver spiller må se |
+| `js/host.js` | Værten: spillerliste, point, pointmål, computerspillernes tempo, og hvad hver spiller må se |
+| `js/bot.js` | Computerspillernes strategi (ser kun det, en spiller må se) |
+| `js/avatars.js` | Figurer, man kan vælge |
 | `js/net.js` | Forbindelser – PeerJS eller lokal testtilstand |
 | `js/app.js` | Brugerfladen |
 | `sw.js`, `manifest.webmanifest`, `icons/` | Gør spillet installerbart som app |
+| `test/golden.test.js` | Golden master: faste, seedede spil skal give samme resultat (opdatér med `UPDATE_GOLDEN=1 npm test` ved en bevidst regelændring) |
 | `vendor/peerjs.min.js` | PeerJS 1.5.4 (MIT-licens) |
+| `vendor/qrcode.js` | qrcode-generator 1.4.4 (MIT-licens) |
+| `vendor/fonts/` | Nunito (SIL Open Font License) |
