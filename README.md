@@ -34,6 +34,7 @@ Husregler, som værten kan slå til i lobbyen:
 
 - **Stabling** – +2 og +4 kan lægges oven på hinanden, og den der ikke kan, trækker det hele.
 - **Træk til du kan** – bliv ved med at trække, indtil du får et kort, der passer.
+- **Læg flere ens** (slået til som standard) – har du flere kort med samme tal eller symbol, må du lægge dem på én gang uanset farve, når det første passer. Det sidste kort bestemmer farven. To +2 giver 4 kort, to spring over springer to spillere over.
 
 Godt at vide:
 

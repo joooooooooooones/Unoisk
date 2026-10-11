@@ -8,7 +8,7 @@ export class Host {
     this.code = code;
     this.hostId = me.id;
     this.roster = saved?.roster ?? [{ id: me.id, name: me.name }];
-    this.settings = saved?.settings ?? { ...G.DEFAULT_SETTINGS };
+    this.settings = { ...G.DEFAULT_SETTINGS, ...saved?.settings };
     this.scores = saved?.scores ?? {};
     this.game = saved?.game ?? null;
     this.round = saved?.round ?? 0;

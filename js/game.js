@@ -9,6 +9,7 @@ export const HAND_SIZE = 7;
 export const DEFAULT_SETTINGS = {
   stacking: false, // +2/+4 kan lægges oven på hinanden
   drawUntilPlayable: false, // træk indtil du får et kort, der kan lægges
+  multiPlay: true, // flere kort med samme tal/symbol må lægges på én gang
 };
 
 const COLOR_NAMES = { red: 'rød', yellow: 'gul', green: 'grøn', blue: 'blå' };
@@ -168,7 +169,7 @@ export function applyAction(state, playerId, action) {
 
   switch (action?.type) {
     case 'play':
-      return play(state, player, action.cardId, action.color);
+      return play(state, player, action.cardIds ?? [action.cardId], action.color);
     case 'draw':
       return draw(state, player);
     case 'pass':
@@ -182,26 +183,45 @@ export function applyAction(state, playerId, action) {
   }
 }
 
-function play(state, player, cardId, chosenColor) {
+function play(state, player, cardIds, chosenColor) {
   requireTurn(state, player.id);
-  const index = player.hand.findIndex((c) => c.id === cardId);
-  if (index === -1) throw new GameError('Du har ikke det kort');
-  const card = player.hand[index];
-  if (!canPlay(state, card)) throw new GameError('Det kort kan ikke lægges nu');
-  if (isWild(card) && !COLORS.includes(chosenColor)) throw new GameError('Vælg en farve');
+  if (!Array.isArray(cardIds) || cardIds.length === 0) throw new GameError('Vælg et kort');
+  if (new Set(cardIds).size !== cardIds.length) throw new GameError('Samme kort er valgt to gange');
+  const cards = cardIds.map((id) => player.hand.find((c) => c.id === id));
+  if (cards.some((c) => !c)) throw new GameError('Du har ikke det kort');
+
+  const [first] = cards;
+  const count = cards.length;
+  if (!canPlay(state, first)) throw new GameError('Det kort kan ikke lægges nu');
+  if (count > 1) {
+    if (!state.settings.multiPlay) throw new GameError('Du kan kun lægge ét kort ad gangen');
+    if (state.hasDrawn) throw new GameError('Du kan kun lægge det kort, du lige har trukket');
+    if (cards.some(isWild)) throw new GameError('Sorte kort kan kun lægges ét ad gangen');
+    if (cards.some((c) => c.value !== first.value)) throw new GameError('Kortene skal have samme tal eller symbol');
+  }
+  if (isWild(first) && !COLORS.includes(chosenColor)) throw new GameError('Vælg en farve');
 
   state.unoTarget = null;
-  player.hand.splice(index, 1);
-  state.discardPile.push(card);
-  state.currentColor = isWild(card) ? chosenColor : card.color;
-  log(state, `${player.name} lagde ${cardName(card)}${isWild(card) ? ` og valgte ${colorName(chosenColor)}` : ''}`);
+  player.hand = player.hand.filter((c) => !cardIds.includes(c.id));
+  state.discardPile.push(...cards);
+  const last = cards[count - 1];
+  state.currentColor = isWild(first) ? chosenColor : last.color;
+  if (count === 1) {
+    log(state, `${player.name} lagde ${cardName(first)}${isWild(first) ? ` og valgte ${colorName(chosenColor)}` : ''}`);
+  } else {
+    const label = VALUE_NAMES[first.value] ?? first.value;
+    log(state, `${player.name} lagde ${count} × ${label} (${cards.map((c) => colorName(c.color)).join(', ')})`);
+  }
 
   if (player.hand.length === 1) {
     if (player.saidUno) log(state, `${player.name}: UNO!`);
     else state.unoTarget = player.id;
   }
 
-  const penalty = card.value === 'draw2' ? 2 : card.value === 'wild4' ? 4 : 0;
+  const n = state.players.length;
+  const perCard = first.value === 'draw2' ? 2 : first.value === 'wild4' ? 4 : 0;
+  const penalty = perCard * count;
+  const skips = Math.min(count, n - 1); // man kan højst springe alle de andre over
   if (penalty && state.settings.stacking) {
     state.pendingDraw += penalty;
     advance(state, 1);
@@ -210,16 +230,13 @@ function play(state, player, cardId, chosenColor) {
     drawCards(state, victim, penalty);
     log(state, `${victim.name} trækker ${penalty} kort og springes over`);
     advance(state, 2);
-  } else if (card.value === 'skip') {
-    log(state, `${state.players[nextIndex(state, 1)].name} springes over`);
-    advance(state, 2);
-  } else if (card.value === 'reverse') {
-    if (state.players.length === 2) {
-      advance(state, 2);
-    } else {
-      state.direction *= -1;
-      advance(state, 1);
-    }
+  } else if (first.value === 'skip' || (first.value === 'reverse' && n === 2)) {
+    const skipped = Array.from({ length: skips }, (_, i) => state.players[nextIndex(state, i + 1)].name);
+    log(state, `${skipped.join(' og ')} springes over`);
+    advance(state, skips + 1);
+  } else if (first.value === 'reverse') {
+    if (count % 2 === 1) state.direction *= -1;
+    advance(state, 1);
   } else {
     advance(state, 1);
   }

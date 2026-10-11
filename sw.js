@@ -1,7 +1,7 @@
 // Service worker: gør Unoisk installerbar og lader appen starte uden net.
 // Netværk først, så en ny version altid hentes, når der er forbindelse.
 
-const CACHE = 'unoisk-v1';
+const CACHE = 'unoisk-v2';
 const SHELL = [
   './',
   'index.html',

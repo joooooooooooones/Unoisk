@@ -228,7 +228,11 @@ test('tilfældige spil med 6 spillere går op', () => {
         const playable = p.hand.filter((card) => G.canPlay(s, card));
         if (playable.length) {
           const card = playable[Math.floor(rng() * playable.length)];
-          G.applyAction(s, p.id, { type: 'play', cardId: card.id, color: G.COLORS[Math.floor(rng() * 4)] });
+          const same =
+            G.isWild(card) || s.hasDrawn ? [] : p.hand.filter((o) => o.id !== card.id && o.value === card.value);
+          const extra = same.slice(0, Math.floor(rng() * (same.length + 1)));
+          const cardIds = [card.id, ...extra.map((o) => o.id)];
+          G.applyAction(s, p.id, { type: 'play', cardIds, color: G.COLORS[Math.floor(rng() * 4)] });
         } else if (s.hasDrawn) {
           G.applyAction(s, p.id, { type: 'pass' });
         } else {
@@ -239,4 +243,65 @@ test('tilfældige spil med 6 spillere går op', () => {
       assert.equal(s.players.find((p) => p.id === s.winnerId).hand.length, 0);
     }
   }
+});
+
+test('flere ens kort kan lægges på én gang uanset farve', () => {
+  const eights = [c('blue', '8'), c('green', '8'), c('yellow', '8')];
+  const s = setup([[...eights, c('red', '1')], [c('red', '2')], [c('red', '3')]], c('red', '8'));
+  G.applyAction(s, 'p0', { type: 'play', cardIds: eights.map((e) => e.id) });
+  assert.equal(s.players[0].hand.length, 1);
+  assert.equal(G.topCard(s).id, eights[2].id);
+  assert.equal(s.currentColor, 'yellow', 'det sidste kort bestemmer farven');
+  assert.equal(s.current, 1);
+  assert.match(s.log.at(-1).text, /3 × 8/);
+});
+
+test('det første kort skal passe, og resten skal have samme værdi', () => {
+  const s = setup(
+    [[c('blue', '8'), c('red', '8'), c('red', '9'), c(null, 'wild'), c(null, 'wild')], [c('red', '2')]],
+    c('red', '5'),
+  );
+  const [blue8, red8, red9, w1, w2] = s.players[0].hand;
+  assert.throws(() => G.applyAction(s, 'p0', { type: 'play', cardIds: [blue8.id, red8.id] }), /kan ikke lægges/);
+  assert.throws(() => G.applyAction(s, 'p0', { type: 'play', cardIds: [red8.id, red9.id] }), /samme tal/);
+  assert.throws(() => G.applyAction(s, 'p0', { type: 'play', cardIds: [w1.id, w2.id], color: 'red' }), /Sorte kort/);
+  assert.throws(() => G.applyAction(s, 'p0', { type: 'play', cardIds: [red8.id, red8.id] }), /to gange/);
+  G.applyAction(s, 'p0', { type: 'play', cardIds: [red8.id, blue8.id] });
+  assert.equal(s.currentColor, 'blue');
+});
+
+test('flere ens kan slås fra som husregel', () => {
+  const s = setup([[c('red', '8'), c('blue', '8'), c('red', '1')], [c('red', '2')]], c('red', '5'), {
+    multiPlay: false,
+  });
+  const [a, b] = s.players[0].hand;
+  assert.throws(() => G.applyAction(s, 'p0', { type: 'play', cardIds: [a.id, b.id] }), /ét kort ad gangen/);
+});
+
+test('to spring over springer to spillere over, to +2 giver 4 kort', () => {
+  const filler = () => [c('green', '1'), c('green', '2')];
+  let s = setup([[c('red', 'skip'), c('blue', 'skip'), ...filler()], filler(), filler(), filler()], c('red', '5'));
+  G.applyAction(s, 'p0', { type: 'play', cardIds: s.players[0].hand.slice(0, 2).map((x) => x.id) });
+  assert.equal(s.current, 3);
+
+  s = setup([[c('red', 'draw2'), c('blue', 'draw2'), ...filler()], filler(), filler()], c('red', '5'));
+  G.applyAction(s, 'p0', { type: 'play', cardIds: s.players[0].hand.slice(0, 2).map((x) => x.id) });
+  assert.equal(s.players[1].hand.length, 6);
+  assert.equal(s.current, 2);
+
+  s = setup([[c('red', 'reverse'), c('blue', 'reverse'), ...filler()], filler(), filler()], c('red', '5'));
+  G.applyAction(s, 'p0', { type: 'play', cardIds: s.players[0].hand.slice(0, 2).map((x) => x.id) });
+  assert.equal(s.direction, 1, 'to retningsskift ophæver hinanden');
+  assert.equal(s.current, 1);
+});
+
+test('efter man har trukket, må man kun lægge det trukne kort', () => {
+  const s = setup([[c('blue', '8'), c('red', '1')], [c('red', '2')]], c('green', '5'));
+  const drawn = c('green', '8');
+  s.drawPile.push(drawn);
+  G.applyAction(s, 'p0', { type: 'draw' });
+  assert.throws(
+    () => G.applyAction(s, 'p0', { type: 'play', cardIds: [drawn.id, s.players[0].hand[0].id] }),
+    /lige har trukket/,
+  );
 });

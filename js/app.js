@@ -43,6 +43,7 @@ const S = {
   online: false,
   notice: '',
   picking: null,
+  selected: [], // kort valgt til at blive lagt sammen (samme tal/symbol)
   showRules: false,
   lastLogId: 0,
   flashLog: false,
@@ -197,6 +198,9 @@ function setView(view) {
     if (myTurn && !S.wasMyTurn) navigator.vibrate?.(120);
     S.wasMyTurn = myTurn;
     if (S.picking !== null && !g.playable.includes(S.picking)) S.picking = null;
+    if (!myTurn || !g.playable.includes(S.selected[0]) || S.selected.some((id) => !g.hand.some((c) => c.id === id))) {
+      S.selected = [];
+    }
   }
   keepAwake();
   render();
@@ -229,12 +233,13 @@ function sortHand(hand) {
   );
 }
 
-function cardHTML(card, { cls = '', act = '' } = {}) {
+function cardHTML(card, { cls = '', act = '', order = 0 } = {}) {
   const sym = SYMBOLS[card.value] ?? card.value;
   const color = card.color ? `c-${card.color}` : 'c-wild';
   const under = card.value === '6' || card.value === '9' ? ' under' : '';
   const tag = act ? 'button' : 'div';
-  const attrs = act ? ` data-act="${act}" data-id="${card.id}" type="button"` : '';
+  let attrs = act ? ` data-act="${act}" data-id="${card.id}" type="button"` : '';
+  if (order) attrs += ` data-order="${order}"`;
   return `<${tag} class="card ${color} v-${card.value} ${cls}"${attrs}>
     <span class="corner tl${under}">${sym}</span>
     <span class="oval"><span class="sym${under}">${sym}</span></span>
@@ -375,6 +380,7 @@ function renderLobby(v) {
       <h2>Husregler</h2>
       ${checkbox('stacking', 'Stabling', '+2 og +4 kan lægges oven på hinanden')}
       ${checkbox('drawUntilPlayable', 'Træk til du kan', 'Bliv ved med at trække, indtil du får et kort, der passer')}
+      ${checkbox('multiPlay', 'Læg flere ens', 'Har du flere kort med samme tal eller symbol, må du lægge dem på én gang – uanset farve')}
     </section>
     ${
       isHost
@@ -416,19 +422,25 @@ function renderGame(v) {
   if (!g.inRound) status = 'Du er med fra næste runde';
   else if (myTurn && g.pendingDraw) status = `Læg et +kort eller træk ${g.pendingDraw}`;
   else if (myTurn && g.hasDrawn) status = 'Læg det nye kort – eller pas';
+  else if (myTurn && S.selected.length) status = 'Vælg flere ens – tryk så Læg';
   else if (myTurn) status = g.playable.length ? 'Din tur!' : 'Din tur – træk et kort';
   else status = current ? `${esc(genitive(current.name))} tur` : '';
   if (!myTurn && g.pendingDraw) status += ` · +${g.pendingDraw} venter`;
 
+  const selecting = myTurn && S.selected.length > 0;
+  const firstSelected = selecting ? g.hand.find((c) => c.id === S.selected[0]) : null;
   const hand = sortHand(g.hand)
     .map((c) => {
-      const playable = g.playable.includes(c.id);
-      const cls = [myTurn ? (playable ? 'playable' : 'dim') : '', c.id === g.drawnCardId ? 'drawn' : ''].join(' ');
-      return cardHTML(c, { cls, act: 'play' });
+      const order = selecting ? S.selected.indexOf(c.id) + 1 : 0;
+      let state = '';
+      if (selecting) state = order ? 'selected' : c.value === firstSelected.value ? 'addable' : 'dim';
+      else if (myTurn) state = g.playable.includes(c.id) ? 'playable' : 'dim';
+      const cls = [state, c.id === g.drawnCardId ? 'drawn' : ''].join(' ');
+      return cardHTML(c, { cls, act: 'play', order });
     })
     .join('');
 
-  const canDraw = myTurn && !g.hasDrawn;
+  const canDraw = myTurn && !g.hasDrawn && !selecting;
   const showUno = g.inRound && g.phase === 'playing' && meInRound && meInRound.count <= 2 && !meInRound.saidUno;
   const iAmCaught = g.unoTarget === S.me;
 
@@ -454,6 +466,12 @@ function renderGame(v) {
     <div class="status ${myTurn ? 'mine' : ''}">${status}</div>
     <div class="actions">
       ${showUno ? `<button class="btn uno ${iAmCaught || meInRound.count === 1 ? 'urgent' : ''}" data-act="uno">UNO!</button>` : ''}
+      ${
+        selecting
+          ? `<button class="btn primary" data-act="play-selected">Læg ${S.selected.length} kort</button>
+             <button class="btn ghost" data-act="cancel-select">Fortryd</button>`
+          : ''
+      }
       ${myTurn && g.hasDrawn ? '<button class="btn" data-act="pass">Pas</button>' : ''}
       ${canDraw ? `<button class="btn" data-act="draw">Træk${g.pendingDraw ? ` ${g.pendingDraw}` : ''}</button>` : ''}
     </div>
@@ -522,6 +540,7 @@ function renderRules() {
         <li>Alle får 7 kort. Læg et kort, der har <b>samme farve, tal eller symbol</b> som kortet i midten. Kort, der kan lægges, lyser op.</li>
         <li>Kan du ikke lægge noget, så <b>tryk på bunken</b> for at trække et kort. Passer det, må du lægge det – ellers går turen videre.</li>
         <li><b>⊘ Spring over</b>: næste spiller mister sin tur. <b>⇄ Retningsskift</b>: turen går den anden vej. <b>+2</b>: næste spiller trækker 2 og mister turen.</li>
+        <li><b>Flere ens:</b> Har du fx tre 8'ere, og passer den første, må du lægge alle tre på én gang – uanset farve. Tryk på det første kort, tryk på de andre, og tryk <b>Læg</b>. Det sidste kort bestemmer farven. To +2 giver 4 kort, to spring over springer to over.</li>
         <li><b>Farveskift</b>: vælg ny farve. <b>+4</b>: vælg farve, og næste spiller trækker 4 og mister turen.</li>
         <li>Når du lægger dit næstsidste kort, skal du trykke <b>UNO!</b> Glemmer du det, kan de andre trykke <b>Fang!</b> – så trækker du 2 kort.</li>
         <li>Den første uden kort vinder runden og får point for de andres kort (tal = værdien, action-kort = 20, sorte = 50). Først til 500 vinder.</li>
@@ -610,9 +629,27 @@ const actions = {
     const g = S.view.game;
     const id = Number(el.dataset.id);
     if (g.currentId !== S.me) return toast('Vent på din tur');
-    if (!g.playable.includes(id)) return toast('Det kort passer ikke', 'error');
     const card = g.hand.find((c) => c.id === id);
-    if (card.color === null) {
+
+    if (S.selected.length) {
+      const first = g.hand.find((c) => c.id === S.selected[0]);
+      if (id === first.id) S.selected = [];
+      else if (S.selected.includes(id)) S.selected = S.selected.filter((x) => x !== id);
+      else if (card.value === first.value) S.selected.push(id);
+      else toast('Vælg kort med samme tal eller symbol');
+      return render();
+    }
+
+    if (!g.playable.includes(id)) return toast('Det kort passer ikke', 'error');
+    const twins =
+      g.settings.multiPlay && !g.hasDrawn && card.color !== null
+        ? g.hand.filter((c) => c.id !== id && c.value === card.value)
+        : [];
+    if (twins.length) {
+      // Der er flere ens på hånden – lad spilleren vælge, hvor mange der skal lægges.
+      S.selected = [id];
+      render();
+    } else if (card.color === null) {
       S.picking = id;
       render();
     } else {
@@ -623,6 +660,15 @@ const actions = {
     const cardId = S.picking;
     S.picking = null;
     send({ type: 'play', cardId, color: el.dataset.color });
+  },
+  'play-selected'() {
+    const cardIds = S.selected;
+    S.selected = [];
+    send({ type: 'play', cardIds });
+  },
+  'cancel-select'() {
+    S.selected = [];
+    render();
   },
   'cancel-pick'() {
     S.picking = null;
