@@ -7,7 +7,7 @@ UNO for hele familien – hver spiller på sin egen telefon. 2–10 spillere (la
 ## Få den på nettet (GitHub Pages)
 
 1. Gå til repoets **Settings → Pages**.
-2. Under **Build and deployment** vælg **Deploy from a branch**, branch `main` og mappe `/ (root)`. Tryk **Save**.
+2. Under **Build and deployment** vælg **Deploy from a branch**, repoets hovedbranch (lige nu `claude/brave-wozniak-qllu6v`) og mappe `/ (root)`. Tryk **Save**.
 3. Efter et minut ligger spillet på `https://<dit-brugernavn>.github.io/<repo-navn>/`.
 
 > GitHub Pages er gratis for offentlige repos. Er repoet privat, kræver Pages et betalt GitHub-abonnement – ellers kan mappen lægges på fx Netlify eller Cloudflare Pages (træk mappen ind, ingen opsætning).
