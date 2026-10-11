@@ -485,6 +485,33 @@ input {
   font-weight: 700;
 }
 
+.invite {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-4);
+  text-align: center;
+}
+
+.qr {
+  display: block;
+  flex: none;
+  width: 128px;
+  height: 128px;
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-1);
+}
+
+.invite-sheet .qr {
+  width: min(240px, 70vw);
+  height: min(240px, 70vw);
+  margin: 0 auto;
+}
+
+.invite-sheet .big-code {
+  margin: 0;
+}
+
 .big-code {
   font-size: 3.25rem;
   font-weight: 900;
@@ -1239,6 +1266,9 @@ body:has(.game) #app {
   place-items: center;
   padding: var(--sp-4);
   z-index: 20;
+}
+
+.overlay.enter {
   animation: fadein 0.2s;
 }
 
@@ -1263,6 +1293,9 @@ body:has(.game) #app {
   display: flex;
   flex-direction: column;
   gap: var(--sp-3);
+}
+
+.overlay.enter .sheet {
   animation: rise 0.25s ease-out;
 }
 
@@ -1471,6 +1504,10 @@ body:has(.game) #app {
 @media (max-width: 360px) {
   .code-chip span {
     display: none;
+  }
+  .invite {
+    flex-direction: column;
+    gap: var(--sp-2);
   }
   .home .logo {
     font-size: 3rem;

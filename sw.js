@@ -13,6 +13,7 @@ const SHELL = [
   'js/bot.js',
   'js/avatars.js',
   'vendor/peerjs.min.js',
+  'vendor/qrcode.js',
   'vendor/fonts/nunito-latin-wght-normal.woff2',
   'manifest.webmanifest',
   'icon.svg',

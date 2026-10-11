@@ -53,6 +53,7 @@ const S = {
   picking: null,
   selected: [], // kort valgt til at blive lagt sammen (samme tal/symbol)
   showRules: false,
+  showInvite: false,
   lastLogId: 0,
   flashLog: false,
   lastRound: 0,
@@ -284,6 +285,20 @@ function cardHTML(card, { cls = '', act = '', order = 0 } = {}) {
   </${tag}>`;
 }
 
+// QR-kode som SVG (biblioteket vendor/qrcode.js lægger 'qrcode' globalt).
+function qrSVG(text) {
+  if (typeof qrcode !== 'function') return '';
+  const qr = qrcode(0, 'M');
+  qr.addData(text);
+  qr.make();
+  const n = qr.getModuleCount();
+  const q = 4; // hvid kant, så kameraet kan finde koden
+  let d = '';
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (qr.isDark(r, c)) d += `M${c + q} ${r + q}h1v1h-1z`;
+  return `<svg class="qr" viewBox="0 0 ${n + 2 * q} ${n + 2 * q}" role="img" aria-label="QR-kode til at deltage i spillet" shape-rendering="crispEdges">
+    <rect width="100%" height="100%" fill="#fff"/><path d="${d}" fill="#000"/></svg>`;
+}
+
 function shareLink(code) {
   const url = new URL(location.pathname, location.origin);
   url.searchParams.set('rum', code);
@@ -318,6 +333,8 @@ function releaseWakeLock() {
 
 // ---------- Visning ----------
 
+let lastSheets = '';
+
 function render() {
   const handEl = app.querySelector('.hand');
   const scroll = handEl?.scrollLeft ?? 0;
@@ -333,8 +350,14 @@ function render() {
     html += `<div class="banner" role="alert">${what} – prøver igen…</div>`;
   }
   if (S.showRules) html += renderRules();
+  if (S.showInvite && S.view) html += renderInvite(S.view);
   app.innerHTML = html;
   S.flashLog = false;
+
+  // Animér kun et ark, når det åbnes – ikke hver gang skærmen tegnes om.
+  const sheets = [...app.querySelectorAll('.overlay')].map((o) => o.firstElementChild?.className ?? '').join('|');
+  if (sheets !== lastSheets) app.querySelectorAll('.overlay').forEach((o) => o.classList.add('enter'));
+  lastSheets = sheets;
 
   const newHand = app.querySelector('.hand');
   if (newHand) newHand.scrollLeft = scroll;
@@ -389,7 +412,7 @@ function topBar(v) {
   const isHost = v.hostId === S.me;
   return `<header class="bar">
     <span class="logo small">UNO<span>isk</span></span>
-    <button class="code-chip" data-act="share" aria-label="Del spilkoden ${esc(v.code)}"><span>Kode</span> <b>${esc(v.code)}</b></button>
+    <button class="code-chip" data-act="invite" aria-label="Inviter flere – kode ${esc(v.code)}"><span>Kode</span> <b>${esc(v.code)}</b></button>
     <span class="bar-actions">
       <button class="icon" data-act="rules" aria-label="Regler">?</button>
       <button class="btn ghost small" data-act="leave">${isHost ? 'Afslut' : 'Forlad'}</button>
@@ -409,9 +432,14 @@ function renderLobby(v) {
   return `${topBar(v)}
   <main class="lobby">
     <section class="code-box">
-      <div class="label">Bed de andre om at åbne siden og skrive koden</div>
-      <div class="big-code">${esc(v.code)}</div>
-      <button class="btn small" data-act="share">Del link</button>
+      <div class="invite">
+        ${qrSVG(shareLink(v.code))}
+        <div>
+          <div class="label">Scan med kameraet – eller skriv koden</div>
+          <div class="big-code">${esc(v.code)}</div>
+          <button class="btn small" data-act="share">Del link</button>
+        </div>
+      </div>
     </section>
     <section class="panel">
       <h2>Spillere <span class="muted">${v.roster.length}/${MAX_PLAYERS}</span></h2>
@@ -630,6 +658,20 @@ function renderRoundOver(v) {
   </div>`;
 }
 
+function renderInvite(v) {
+  return `<div class="overlay" data-act="close-invite">
+    <div class="sheet invite-sheet" data-stop role="dialog" aria-modal="true" aria-labelledby="invite-title">
+      <h2 id="invite-title">Inviter flere</h2>
+      ${qrSVG(shareLink(v.code))}
+      <p class="muted">Scan med kameraet, eller skriv koden på forsiden</p>
+      <div class="big-code">${esc(v.code)}</div>
+      <p class="hint">Nye spillere kommer med, når den næste runde starter.</p>
+      <button class="btn primary" data-act="share">Del link</button>
+      <button class="btn ghost" data-act="close-invite">Luk</button>
+    </div>
+  </div>`;
+}
+
 function renderRules() {
   return `<div class="overlay" data-act="close-rules">
     <div class="sheet rules" data-stop>
@@ -723,6 +765,14 @@ const actions = {
     leaveGame();
   },
   share,
+  invite() {
+    S.showInvite = true;
+    render();
+  },
+  'close-invite'() {
+    S.showInvite = false;
+    render();
+  },
   async install() {
     if (!installPrompt) return;
     installPrompt.prompt();
