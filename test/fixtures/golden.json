@@ -1,0 +1,788 @@
+{
+ "points": {
+  "0": 0,
+  "5": 5,
+  "9": 9,
+  "skip": 20,
+  "reverse": 20,
+  "draw2": 20,
+  "wild": 50,
+  "wild4": 50
+ },
+ "games": [
+  {
+   "seed": 1,
+   "n": 2,
+   "settings": {},
+   "turns": 46,
+   "winnerId": "p1",
+   "points": 113,
+   "hands": [
+    7,
+    0
+   ],
+   "logCount": 60,
+   "lastLog": [
+    "S1 lagde gul Retningsskift",
+    "S0 springes over",
+    "S1 vandt runden og får 113 point!"
+   ]
+  },
+  {
+   "seed": 7,
+   "n": 2,
+   "settings": {},
+   "turns": 72,
+   "winnerId": "p0",
+   "points": 20,
+   "hands": [
+    0,
+    1
+   ],
+   "logCount": 88,
+   "lastLog": [
+    "S1 lagde gul 7",
+    "S0 lagde gul 3",
+    "S0 vandt runden og får 20 point!"
+   ]
+  },
+  {
+   "seed": 42,
+   "n": 2,
+   "settings": {},
+   "turns": 90,
+   "winnerId": "p0",
+   "points": 53,
+   "hands": [
+    0,
+    4
+   ],
+   "logCount": 110,
+   "lastLog": [
+    "S1 lagde blå 6",
+    "S0 lagde grøn 6",
+    "S0 vandt runden og får 53 point!"
+   ]
+  },
+  {
+   "seed": 1,
+   "n": 4,
+   "settings": {},
+   "turns": 46,
+   "winnerId": "p2",
+   "points": 87,
+   "hands": [
+    4,
+    3,
+    0,
+    3
+   ],
+   "logCount": 54,
+   "lastLog": [
+    "S1 lagde blå 9",
+    "S2 lagde grøn 9",
+    "S2 vandt runden og får 87 point!"
+   ]
+  },
+  {
+   "seed": 7,
+   "n": 4,
+   "settings": {},
+   "turns": 38,
+   "winnerId": "p3",
+   "points": 164,
+   "hands": [
+    2,
+    10,
+    7,
+    0
+   ],
+   "logCount": 49,
+   "lastLog": [
+    "S0 trak et kort",
+    "S3 lagde rød 2",
+    "S3 vandt runden og får 164 point!"
+   ]
+  },
+  {
+   "seed": 42,
+   "n": 4,
+   "settings": {},
+   "turns": 44,
+   "winnerId": "p1",
+   "points": 133,
+   "hands": [
+    5,
+    0,
+    3,
+    10
+   ],
+   "logCount": 56,
+   "lastLog": [
+    "S0 lagde Farveskift og valgte gul",
+    "S1 lagde gul 9",
+    "S1 vandt runden og får 133 point!"
+   ]
+  },
+  {
+   "seed": 1,
+   "n": 6,
+   "settings": {},
+   "turns": 133,
+   "winnerId": "p5",
+   "points": 79,
+   "hands": [
+    5,
+    2,
+    2,
+    1,
+    1,
+    0
+   ],
+   "logCount": 157,
+   "lastLog": [
+    "S4 lagde gul 2",
+    "S5 lagde blå 2",
+    "S5 vandt runden og får 79 point!"
+   ]
+  },
+  {
+   "seed": 7,
+   "n": 6,
+   "settings": {},
+   "turns": 40,
+   "winnerId": "p4",
+   "points": 211,
+   "hands": [
+    13,
+    2,
+    5,
+    2,
+    0,
+    4
+   ],
+   "logCount": 51,
+   "lastLog": [
+    "S5 trak et kort",
+    "S4 lagde 2 × 9 (gul, rød)",
+    "S4 vandt runden og får 211 point!"
+   ]
+  },
+  {
+   "seed": 42,
+   "n": 6,
+   "settings": {},
+   "turns": 81,
+   "winnerId": "p1",
+   "points": 121,
+   "hands": [
+    4,
+    0,
+    4,
+    3,
+    1,
+    3
+   ],
+   "logCount": 98,
+   "lastLog": [
+    "S2 lagde blå 4",
+    "S1 lagde 2 × 7 (blå, grøn)",
+    "S1 vandt runden og får 121 point!"
+   ]
+  },
+  {
+   "seed": 1,
+   "n": 2,
+   "settings": {
+    "stacking": true
+   },
+   "turns": 49,
+   "winnerId": "p1",
+   "points": 113,
+   "hands": [
+    7,
+    0
+   ],
+   "logCount": 60,
+   "lastLog": [
+    "S1 lagde gul Retningsskift",
+    "S0 springes over",
+    "S1 vandt runden og får 113 point!"
+   ]
+  },
+  {
+   "seed": 7,
+   "n": 2,
+   "settings": {
+    "stacking": true
+   },
+   "turns": 43,
+   "winnerId": "p1",
+   "points": 22,
+   "hands": [
+    3,
+    0
+   ],
+   "logCount": 49,
+   "lastLog": [
+    "S0 lagde blå 1",
+    "S1 lagde grøn 1",
+    "S1 vandt runden og får 22 point!"
+   ]
+  },
+  {
+   "seed": 42,
+   "n": 2,
+   "settings": {
+    "stacking": true
+   },
+   "turns": 55,
+   "winnerId": "p1",
+   "points": 4,
+   "hands": [
+    2,
+    0
+   ],
+   "logCount": 66,
+   "lastLog": [
+    "S0 lagde Farveskift og valgte rød",
+    "S1 lagde rød 3",
+    "S1 vandt runden og får 4 point!"
+   ]
+  },
+  {
+   "seed": 1,
+   "n": 4,
+   "settings": {
+    "stacking": true
+   },
+   "turns": 48,
+   "winnerId": "p2",
+   "points": 87,
+   "hands": [
+    4,
+    3,
+    0,
+    3
+   ],
+   "logCount": 54,
+   "lastLog": [
+    "S1 lagde blå 9",
+    "S2 lagde grøn 9",
+    "S2 vandt runden og får 87 point!"
+   ]
+  },
+  {
+   "seed": 7,
+   "n": 4,
+   "settings": {
+    "stacking": true
+   },
+   "turns": 76,
+   "winnerId": "p1",
+   "points": 47,
+   "hands": [
+    1,
+    0,
+    1,
+    3
+   ],
+   "logCount": 89,
+   "lastLog": [
+    "S0: UNO!",
+    "S1 lagde blå 4",
+    "S1 vandt runden og får 47 point!"
+   ]
+  },
+  {
+   "seed": 42,
+   "n": 4,
+   "settings": {
+    "stacking": true
+   },
+   "turns": 68,
+   "winnerId": "p1",
+   "points": 54,
+   "hands": [
+    3,
+    0,
+    1,
+    2
+   ],
+   "logCount": 76,
+   "lastLog": [
+    "S0 lagde 2 × 9 (grøn, grøn)",
+    "S1 lagde gul 9",
+    "S1 vandt runden og får 54 point!"
+   ]
+  },
+  {
+   "seed": 1,
+   "n": 6,
+   "settings": {
+    "stacking": true
+   },
+   "turns": 140,
+   "winnerId": "p4",
+   "points": 124,
+   "hands": [
+    5,
+    7,
+    3,
+    3,
+    0,
+    3
+   ],
+   "logCount": 152,
+   "lastLog": [
+    "S4 lagde blå Spring over",
+    "S5 springes over",
+    "S4 vandt runden og får 124 point!"
+   ]
+  },
+  {
+   "seed": 7,
+   "n": 6,
+   "settings": {
+    "stacking": true
+   },
+   "turns": 37,
+   "winnerId": "p2",
+   "points": 265,
+   "hands": [
+    6,
+    2,
+    0,
+    9,
+    13,
+    1
+   ],
+   "logCount": 42,
+   "lastLog": [
+    "S1 lagde rød 2",
+    "S2 lagde rød 6",
+    "S2 vandt runden og får 265 point!"
+   ]
+  },
+  {
+   "seed": 42,
+   "n": 6,
+   "settings": {
+    "stacking": true
+   },
+   "turns": 49,
+   "winnerId": "p2",
+   "points": 292,
+   "hands": [
+    8,
+    7,
+    0,
+    8,
+    3,
+    7
+   ],
+   "logCount": 55,
+   "lastLog": [
+    "S1 lagde Farveskift og valgte blå",
+    "S2 lagde blå Retningsskift",
+    "S2 vandt runden og får 292 point!"
+   ]
+  },
+  {
+   "seed": 1,
+   "n": 2,
+   "settings": {
+    "drawUntilPlayable": true
+   },
+   "turns": 75,
+   "winnerId": "p0",
+   "points": 53,
+   "hands": [
+    0,
+    6
+   ],
+   "logCount": 99,
+   "lastLog": [
+    "S1 lagde rød 8",
+    "S0 lagde rød 1",
+    "S0 vandt runden og får 53 point!"
+   ]
+  },
+  {
+   "seed": 7,
+   "n": 2,
+   "settings": {
+    "drawUntilPlayable": true
+   },
+   "turns": 149,
+   "winnerId": "p1",
+   "points": 35,
+   "hands": [
+    7,
+    0
+   ],
+   "logCount": 183,
+   "lastLog": [
+    "S0 lagde gul 7",
+    "S1 lagde blå 7",
+    "S1 vandt runden og får 35 point!"
+   ]
+  },
+  {
+   "seed": 42,
+   "n": 2,
+   "settings": {
+    "drawUntilPlayable": true
+   },
+   "turns": 162,
+   "winnerId": "p1",
+   "points": 59,
+   "hands": [
+    6,
+    0
+   ],
+   "logCount": 193,
+   "lastLog": [
+    "S0 lagde gul 7",
+    "S1 lagde gul 9",
+    "S1 vandt runden og får 59 point!"
+   ]
+  },
+  {
+   "seed": 1,
+   "n": 4,
+   "settings": {
+    "drawUntilPlayable": true
+   },
+   "turns": 113,
+   "winnerId": "p3",
+   "points": 98,
+   "hands": [
+    2,
+    6,
+    1,
+    0
+   ],
+   "logCount": 137,
+   "lastLog": [
+    "S2: UNO!",
+    "S3 lagde grøn 9",
+    "S3 vandt runden og får 98 point!"
+   ]
+  },
+  {
+   "seed": 7,
+   "n": 4,
+   "settings": {
+    "drawUntilPlayable": true
+   },
+   "turns": 41,
+   "winnerId": "p0",
+   "points": 160,
+   "hands": [
+    0,
+    4,
+    5,
+    3
+   ],
+   "logCount": 52,
+   "lastLog": [
+    "S1 lagde blå 2",
+    "S0 lagde blå 9",
+    "S0 vandt runden og får 160 point!"
+   ]
+  },
+  {
+   "seed": 42,
+   "n": 4,
+   "settings": {
+    "drawUntilPlayable": true
+   },
+   "turns": 116,
+   "winnerId": "p3",
+   "points": 180,
+   "hands": [
+    12,
+    7,
+    2,
+    0
+   ],
+   "logCount": 138,
+   "lastLog": [
+    "S2 lagde grøn 1",
+    "S3 lagde grøn 7",
+    "S3 vandt runden og får 180 point!"
+   ]
+  },
+  {
+   "seed": 1,
+   "n": 6,
+   "settings": {
+    "drawUntilPlayable": true
+   },
+   "turns": 81,
+   "winnerId": "p2",
+   "points": 130,
+   "hands": [
+    4,
+    3,
+    0,
+    1,
+    3,
+    6
+   ],
+   "logCount": 100,
+   "lastLog": [
+    "S3: UNO!",
+    "S2 lagde gul 2",
+    "S2 vandt runden og får 130 point!"
+   ]
+  },
+  {
+   "seed": 7,
+   "n": 6,
+   "settings": {
+    "drawUntilPlayable": true
+   },
+   "turns": 40,
+   "winnerId": "p4",
+   "points": 411,
+   "hands": [
+    9,
+    3,
+    8,
+    17,
+    0,
+    4
+   ],
+   "logCount": 48,
+   "lastLog": [
+    "S5 lagde blå 9",
+    "S4 lagde 2 × 9 (rød, gul)",
+    "S4 vandt runden og får 411 point!"
+   ]
+  },
+  {
+   "seed": 42,
+   "n": 6,
+   "settings": {
+    "drawUntilPlayable": true
+   },
+   "turns": 113,
+   "winnerId": "p0",
+   "points": 281,
+   "hands": [
+    0,
+    4,
+    1,
+    1,
+    10,
+    11
+   ],
+   "logCount": 136,
+   "lastLog": [
+    "S4 og S5 springes over",
+    "S0 lagde 2 × 8 (grøn, blå)",
+    "S0 vandt runden og får 281 point!"
+   ]
+  },
+  {
+   "seed": 1,
+   "n": 2,
+   "settings": {
+    "multiPlay": false
+   },
+   "turns": 49,
+   "winnerId": "p0",
+   "points": 28,
+   "hands": [
+    0,
+    3
+   ],
+   "logCount": 65,
+   "lastLog": [
+    "S1 lagde grøn 3",
+    "S0 lagde grøn 4",
+    "S0 vandt runden og får 28 point!"
+   ]
+  },
+  {
+   "seed": 7,
+   "n": 2,
+   "settings": {
+    "multiPlay": false
+   },
+   "turns": 146,
+   "winnerId": "p0",
+   "points": 38,
+   "hands": [
+    0,
+    4
+   ],
+   "logCount": 184,
+   "lastLog": [
+    "S1 trak et kort",
+    "S0 lagde gul 5",
+    "S0 vandt runden og får 38 point!"
+   ]
+  },
+  {
+   "seed": 42,
+   "n": 2,
+   "settings": {
+    "multiPlay": false
+   },
+   "turns": 61,
+   "winnerId": "p1",
+   "points": 46,
+   "hands": [
+    3,
+    0
+   ],
+   "logCount": 76,
+   "lastLog": [
+    "S1 fangede S0, som glemte at sige UNO! S0 trækker 2 kort",
+    "S1 lagde blå 9",
+    "S1 vandt runden og får 46 point!"
+   ]
+  },
+  {
+   "seed": 1,
+   "n": 4,
+   "settings": {
+    "multiPlay": false
+   },
+   "turns": 99,
+   "winnerId": "p3",
+   "points": 99,
+   "hands": [
+    5,
+    6,
+    2,
+    0
+   ],
+   "logCount": 120,
+   "lastLog": [
+    "S2 trak et kort",
+    "S3 lagde rød 5",
+    "S3 vandt runden og får 99 point!"
+   ]
+  },
+  {
+   "seed": 7,
+   "n": 4,
+   "settings": {
+    "multiPlay": false
+   },
+   "turns": 67,
+   "winnerId": "p3",
+   "points": 67,
+   "hands": [
+    8,
+    3,
+    4,
+    0
+   ],
+   "logCount": 84,
+   "lastLog": [
+    "S0 lagde grøn 9",
+    "S3 lagde grøn 1",
+    "S3 vandt runden og får 67 point!"
+   ]
+  },
+  {
+   "seed": 42,
+   "n": 4,
+   "settings": {
+    "multiPlay": false
+   },
+   "turns": 42,
+   "winnerId": "p2",
+   "points": 276,
+   "hands": [
+    10,
+    4,
+    0,
+    8
+   ],
+   "logCount": 56,
+   "lastLog": [
+    "S3 trækker 2 kort og springes over",
+    "S2 lagde rød 0",
+    "S2 vandt runden og får 276 point!"
+   ]
+  },
+  {
+   "seed": 1,
+   "n": 6,
+   "settings": {
+    "multiPlay": false
+   },
+   "turns": 104,
+   "winnerId": "p4",
+   "points": 261,
+   "hands": [
+    3,
+    3,
+    5,
+    2,
+    0,
+    9
+   ],
+   "logCount": 129,
+   "lastLog": [
+    "S3 lagde blå Retningsskift",
+    "S4 lagde grøn Retningsskift",
+    "S4 vandt runden og får 261 point!"
+   ]
+  },
+  {
+   "seed": 7,
+   "n": 6,
+   "settings": {
+    "multiPlay": false
+   },
+   "turns": 36,
+   "winnerId": "p5",
+   "points": 352,
+   "hands": [
+    9,
+    3,
+    5,
+    8,
+    9,
+    0
+   ],
+   "logCount": 45,
+   "lastLog": [
+    "S0 lagde gul 6",
+    "S5 lagde gul 4",
+    "S5 vandt runden og får 352 point!"
+   ]
+  },
+  {
+   "seed": 42,
+   "n": 6,
+   "settings": {
+    "multiPlay": false
+   },
+   "turns": 66,
+   "winnerId": "p4",
+   "points": 176,
+   "hands": [
+    3,
+    1,
+    7,
+    5,
+    0,
+    2
+   ],
+   "logCount": 84,
+   "lastLog": [
+    "S5 lagde blå 9",
+    "S4 lagde blå 2",
+    "S4 vandt runden og får 176 point!"
+   ]
+  }
+ ]
+}
