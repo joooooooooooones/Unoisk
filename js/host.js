@@ -3,6 +3,10 @@
 
 import * as G from './game.js';
 import { BOT_NAMES, chooseMoves, chooseCatch } from './bot.js';
+import { BOT_AVATAR, validAvatar } from './avatars.js';
+
+export const TARGETS = [100, 200, 300, 500]; // mulige pointmål; 500 er det officielle
+const HOST_DEFAULTS = { ...G.DEFAULT_SETTINGS, target: 500 };
 
 const BOT_THINK_MS = [900, 1600]; // så man kan nå at se, hvad botten gør
 const BOT_CATCH_MS = [1800, 3300]; // giver mennesker tid til selv at sige UNO
@@ -13,7 +17,10 @@ export class Host {
     this.code = code;
     this.hostId = me.id;
     this.roster = saved?.roster ?? [{ id: me.id, name: me.name }];
-    this.settings = { ...G.DEFAULT_SETTINGS, ...saved?.settings };
+    const self = this.roster.find((p) => p.id === me.id);
+    if (self && validAvatar(me.emoji)) self.emoji = me.emoji;
+    this.settings = { ...HOST_DEFAULTS, ...saved?.settings };
+    this.championId = saved?.championId ?? null;
     this.scores = saved?.scores ?? {};
     this.game = saved?.game ?? null;
     this.round = saved?.round ?? 0;
@@ -26,8 +33,8 @@ export class Host {
   }
 
   snapshot() {
-    const { code, hostId, roster, settings, scores, game, round } = this;
-    return { code, hostId, roster, settings, scores, game, round };
+    const { code, hostId, roster, settings, scores, game, round, championId } = this;
+    return { code, hostId, roster, settings, scores, game, round, championId };
   }
 
   addConnection(conn) {
@@ -51,7 +58,7 @@ export class Host {
     }
   }
 
-  join(conn, { id, name }) {
+  join(conn, { id, name, emoji }) {
     id = String(id ?? '').slice(0, 64);
     name = cleanName(name);
     if (!id || !name) return reject(conn, 'Skriv et navn');
@@ -62,6 +69,8 @@ export class Host {
       if (this.roster.length >= G.MAX_PLAYERS) return reject(conn, `Spillet er fuldt (max ${G.MAX_PLAYERS})`);
       this.roster.push({ id, name: this.uniqueName(name) });
     }
+    const player = this.roster.find((p) => p.id === id);
+    if (validAvatar(emoji)) player.emoji = emoji;
 
     const old = this.conns.get(id);
     if (old && old !== conn) old.close();
@@ -93,7 +102,13 @@ export class Host {
       case 'start': {
         if (!isHost) throw new G.GameError('Kun værten kan starte');
         if (this.game?.phase === 'playing') throw new G.GameError('Runden er allerede i gang');
-        if (action.resetScores) this.scores = {};
+        if (action.resetScores) {
+          this.scores = {};
+          this.championId = null;
+          this.round = 0;
+        } else if (this.championId) {
+          throw new G.GameError('Spillet er slut – start et nyt spil');
+        }
         this.round += 1;
         this.game = G.newRound(this.roster, this.settings, {
           startIndex: (this.round - 1) % this.roster.length,
@@ -107,6 +122,12 @@ export class Host {
         for (const key of Object.keys(G.DEFAULT_SETTINGS)) {
           if (key in action.settings) this.settings[key] = Boolean(action.settings[key]);
         }
+        if ('target' in action.settings) {
+          const target = Number(action.settings.target);
+          if (!TARGETS.includes(target)) throw new G.GameError('Ugyldigt pointmål');
+          if (this.championId) throw new G.GameError('Spillet er slut – start et nyt spil først');
+          this.settings.target = target;
+        }
         return;
       }
       case 'addBot': {
@@ -115,7 +136,7 @@ export class Host {
         if (this.roster.length >= G.MAX_PLAYERS) throw new G.GameError(`Der kan højst være ${G.MAX_PLAYERS} spillere`);
         const taken = new Set(this.roster.map((p) => p.name));
         const name = BOT_NAMES.find((n) => !taken.has(n)) ?? this.uniqueName('Robot');
-        this.roster.push({ id: `bot-${Math.random().toString(36).slice(2, 10)}`, name, bot: true });
+        this.roster.push({ id: `bot-${Math.random().toString(36).slice(2, 10)}`, name, bot: true, emoji: BOT_AVATAR });
         return;
       }
       case 'kick': {
@@ -140,6 +161,7 @@ export class Host {
     if (phaseBefore === 'playing' && this.game.phase === 'roundOver') {
       const w = this.game.winnerId;
       this.scores[w] = (this.scores[w] ?? 0) + this.game.points;
+      if (this.scores[w] >= this.settings.target) this.championId = w;
     }
   }
 
@@ -167,11 +189,13 @@ export class Host {
       me: playerId,
       round: this.round,
       settings: this.settings,
+      championId: this.championId,
       roster: this.roster.map((p) => ({
         id: p.id,
         name: p.name,
         connected: p.id === this.hostId || Boolean(p.bot) || this.conns.has(p.id),
         bot: Boolean(p.bot),
+        emoji: p.emoji ?? null,
         score: this.scores[p.id] ?? 0,
       })),
       game: this.game ? G.viewFor(this.game, playerId) : null,

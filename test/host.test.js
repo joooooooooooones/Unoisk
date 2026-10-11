@@ -193,3 +193,64 @@ test('point bevares, når en spiller fjernes og kommer tilbage', () => {
   join(host, 'c1', 'Far');
   assert.equal(host.viewFor('h').roster.find((p) => p.id === 'c1').score, 120);
 });
+
+function winRound(host, winnerId, loserCard) {
+  const g = host.game;
+  const w = g.players.find((p) => p.id === winnerId);
+  g.current = g.players.indexOf(w);
+  w.hand = [{ id: 9001, color: g.currentColor, value: '1' }];
+  for (const p of g.players) if (p !== w) p.hand = [loserCard];
+  host.act(winnerId, { type: 'play', cardId: 9001 });
+}
+
+test('pointmål: værten vælger målet, og spillet slutter når det nås', () => {
+  const { host } = makeHost();
+  const far = join(host, 'c1', 'Far');
+  far.receive({ t: 'action', action: { type: 'settings', settings: { target: 100 } } });
+  assert.equal(far.last().t, 'error', 'kun værten kan ændre mål');
+  assert.throws(() => host.apply('h', { type: 'settings', settings: { target: 123 } }), /Ugyldigt/);
+  host.act('h', { type: 'settings', settings: { target: 100 } });
+  assert.equal(host.viewFor('c1').settings.target, 100);
+
+  host.act('h', { type: 'start' });
+  winRound(host, 'h', { id: 9002, color: null, value: 'wild' }); // +50
+  assert.equal(host.championId, null);
+  host.act('h', { type: 'start' });
+  winRound(host, 'h', { id: 9003, color: null, value: 'wild4' }); // +50 → 100
+  assert.equal(host.scores.h, 100);
+  assert.equal(host.viewFor('c1').championId, 'h');
+  assert.throws(() => host.apply('h', { type: 'start' }), /Spillet er slut/);
+
+  host.act('h', { type: 'start', resetScores: true });
+  assert.equal(host.championId, null);
+  assert.deepEqual(host.scores, {});
+  assert.equal(host.game.round, 1);
+});
+
+test('avatar: gyldige emoji gemmes, ugyldige ignoreres, gamle data uden avatar virker', () => {
+  const host = new Host({ code: 'ABCD', me: { id: 'h', name: 'Mor', emoji: '🦊' } });
+  const far = fakeConn();
+  host.addConnection(far);
+  far.receive({ t: 'join', id: 'c1', name: 'Far', emoji: '🐻' });
+  const ida = fakeConn();
+  host.addConnection(ida);
+  ida.receive({ t: 'join', id: 'c2', name: 'Ida', emoji: '<img src=x>' });
+  host.act('h', { type: 'addBot' });
+  assert.deepEqual(
+    host.viewFor('h').roster.map((p) => p.emoji),
+    ['🦊', '🐻', null, '🤖'],
+  );
+  // Far skifter avatar ved genindtræden
+  const again = fakeConn();
+  host.addConnection(again);
+  again.receive({ t: 'join', id: 'c1', name: 'Far', emoji: '🦁' });
+  assert.equal(host.viewFor('h').roster[1].emoji, '🦁');
+
+  const restored = new Host({
+    code: 'ABCD',
+    me: { id: 'h', name: 'Mor' },
+    saved: JSON.parse(JSON.stringify(host.snapshot())),
+  });
+  assert.equal(restored.viewFor('h').roster[1].emoji, '🦁');
+  assert.equal(restored.settings.target, 500);
+});
