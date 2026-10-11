@@ -1,5 +1,5 @@
 import { createTransport, makeCode, normalizeCode } from './net.js';
-import { Host, cleanName } from './host.js';
+import { Host, TARGETS, cleanName } from './host.js';
 import { COLORS, colorName, MAX_PLAYERS } from './game.js';
 import { AVATARS, validAvatar } from './avatars.js';
 
@@ -255,6 +255,8 @@ const avatar = (p, cls = '') =>
     : `<span class="avatar ${cls}" style="--avatar:${avatarColor(p.id)}" aria-hidden="true">${esc(p.name.slice(0, 1).toUpperCase())}</span>`;
 const genitive = (name) => (/[sxz]$/i.test(name) ? `${name}'` : `${name}s`);
 
+const TARGET_LABELS = { 100: 'Hurtigt', 200: 'Kort', 300: 'Mellem', 500: 'Officielt' };
+
 const SYMBOLS = { skip: '⊘', reverse: '⇄', draw2: '+2', wild: '', wild4: '+4' };
 const COLOR_ORDER = [...COLORS, null];
 const VALUE_ORDER = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'skip', 'reverse', 'draw2', 'wild', 'wild4'];
@@ -432,6 +434,18 @@ function renderLobby(v) {
              ${v.roster.length < 3 ? '<p class="hint">Er I få? Computerspillere fylder bordet op – og man kan øve sig alene.</p>' : ''}`
           : ''
       }
+    </section>
+    <section class="panel">
+      <h2>Spillets længde</h2>
+      <div class="segmented" role="radiogroup" aria-label="Pointmål">
+        ${TARGETS.map(
+          (t) =>
+            `<button type="button" role="radio" aria-checked="${s.target === t}" class="${s.target === t ? 'on' : ''}" data-act="target" data-target="${t}" ${isHost ? '' : 'disabled'}>
+              <b>${t}</b><small>${TARGET_LABELS[t]}</small>
+            </button>`,
+        ).join('')}
+      </div>
+      <p class="hint">Den første, der når ${s.target} point, vinder hele spillet.</p>
     </section>
     <section class="panel">
       <h2>Husregler</h2>
@@ -628,7 +642,7 @@ function renderRules() {
         <li><b>Flere ens:</b> Har du fx tre 8'ere, og passer den første, må du lægge alle tre på én gang – uanset farve. Tryk på det første kort, tryk på de andre, og tryk <b>Læg</b>. Det sidste kort bestemmer farven. To +2 giver 4 kort, to spring over springer to over.</li>
         <li><b>Farveskift</b>: vælg ny farve. <b>+4</b>: vælg farve, og næste spiller trækker 4 og mister turen.</li>
         <li>Når du lægger dit næstsidste kort, skal du trykke <b>UNO!</b> Glemmer du det, kan de andre trykke <b>Fang!</b> – så trækker du 2 kort.</li>
-        <li>Den første uden kort vinder runden og får point for de andres kort (tal = værdien, action-kort = 20, sorte = 50). Først til 500 vinder.</li>
+        <li>Den første uden kort vinder runden og får point for de andres kort (tal = værdien, action-kort = 20, sorte = 50). Den første, der når pointmålet, vinder – værten vælger 100, 200, 300 eller 500 (officielt).</li>
       </ol>
       <p class="muted small">Tip: Hold skærmen tændt under spillet. Mister nogen forbindelsen, kommer de automatisk tilbage, når de åbner siden igen.</p>
       <button class="btn primary" data-act="close-rules">Forstået</button>
@@ -733,6 +747,9 @@ const actions = {
   kick(el) {
     const p = S.view.roster.find((r) => r.id === el.dataset.id);
     if (p && (p.bot || confirm(`Fjern ${p.name} fra spillet?`))) send({ type: 'kick', targetId: p.id });
+  },
+  target(el) {
+    send({ type: 'settings', settings: { target: Number(el.dataset.target) } });
   },
   'add-bot'() {
     send({ type: 'addBot' });

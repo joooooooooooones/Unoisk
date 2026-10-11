@@ -596,6 +596,48 @@ input {
     var(--shadow-2);
 }
 
+.segmented {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.segmented button {
+  min-height: 52px;
+  border: 0;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.15;
+}
+
+.segmented b {
+  font-size: var(--fs-lg);
+  font-weight: 900;
+}
+
+.segmented small {
+  font-size: var(--fs-xs);
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.segmented button.on {
+  background: var(--primary);
+  box-shadow: 0 3px 0 var(--primary-press);
+}
+
+.segmented button.on small {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.segmented button:disabled:not(.on) {
+  opacity: 0.55;
+}
+
 .check {
   display: flex;
   gap: var(--sp-3);
