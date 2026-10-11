@@ -305,3 +305,32 @@ test('efter man har trukket, må man kun lægge det trukne kort', () => {
     /lige har trukket/,
   );
 });
+
+test('UNO kan siges i egen tur før man lægger flere ens ned til ét kort', () => {
+  const s = setup(
+    [
+      [c('red', '8'), c('blue', '8'), c('green', '1')],
+      [c('red', '2'), c('red', '3'), c('red', '4')],
+    ],
+    c('red', '5'),
+  );
+  const [r8, b8] = s.players[0].hand;
+  assert.throws(() => G.applyAction(s, 'p1', { type: 'uno' }), /1-2 kort/, 'ikke uden for egen tur med mange kort');
+  G.applyAction(s, 'p0', { type: 'uno' });
+  G.applyAction(s, 'p0', { type: 'play', cardIds: [r8.id, b8.id] });
+  assert.equal(s.unoTarget, null);
+  assert.throws(() => G.applyAction(s, 'p1', { type: 'catch', targetId: 'p0' }), /For sent/);
+});
+
+test('UNO sagt for tidligt tæller ikke, hvis man ender med flere kort', () => {
+  const s = setup(
+    [
+      [c('red', '1'), c('red', '2'), c('red', '3')],
+      [c('blue', '1'), c('blue', '2')],
+    ],
+    c('red', '5'),
+  );
+  G.applyAction(s, 'p0', { type: 'uno' });
+  G.applyAction(s, 'p0', { type: 'play', cardId: s.players[0].hand[0].id });
+  assert.equal(s.players[0].saidUno, false);
+});

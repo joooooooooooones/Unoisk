@@ -213,6 +213,7 @@ function play(state, player, cardIds, chosenColor) {
     log(state, `${player.name} lagde ${count} × ${label} (${cards.map((c) => colorName(c.color)).join(', ')})`);
   }
 
+  if (player.hand.length > 1) player.saidUno = false; // UNO tæller kun, hvis man ender på ét kort
   if (player.hand.length === 1) {
     if (player.saidUno) log(state, `${player.name}: UNO!`);
     else state.unoTarget = player.id;
@@ -297,7 +298,9 @@ function pass(state, player) {
 
 function sayUno(state, player) {
   if (state.phase !== 'playing') throw new GameError('Runden er slut');
-  if (player.hand.length > 2) throw new GameError('Du kan kun sige UNO med 1-2 kort');
+  // I sin egen tur må man sige UNO før et træk, der lander på ét kort (fx tre ens fra tre kort).
+  const myTurn = currentPlayer(state).id === player.id;
+  if (player.hand.length > 2 && !myTurn) throw new GameError('Du kan kun sige UNO, når du har 1-2 kort');
   if (player.saidUno) return;
   player.saidUno = true;
   if (state.unoTarget === player.id) {
