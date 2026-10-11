@@ -379,6 +379,7 @@ export function viewFor(state, playerId) {
     hand: me ? me.hand : [],
     playable: myTurn ? me.hand.filter((c) => canPlay(state, c)).map((c) => c.id) : [],
     top: topCard(state),
+    under: state.discardPile[state.discardPile.length - 2] ?? null,
     currentColor: state.currentColor,
     currentId: currentPlayer(state)?.id ?? null,
     direction: state.direction,

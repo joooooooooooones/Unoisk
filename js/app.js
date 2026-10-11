@@ -221,13 +221,28 @@ function setView(view) {
 const esc = (s) =>
   String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
-function hue(id) {
+// Faste avatarfarver, der ikke kan forveksles med kortfarverne.
+const AVATAR_COLORS = [
+  '#8e44ad',
+  '#d35400',
+  '#00897b',
+  '#c2185b',
+  '#5e35b1',
+  '#6d4c41',
+  '#00838f',
+  '#ad1457',
+  '#546e7a',
+  '#7b1fa2',
+];
+
+function avatarColor(id) {
   let h = 0;
-  for (const ch of String(id)) h = (h * 31 + ch.charCodeAt(0)) % 360;
-  return h;
+  for (const ch of String(id)) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return AVATAR_COLORS[h % AVATAR_COLORS.length];
 }
 
-const avatar = (p) => `<span class="avatar" style="--hue:${hue(p.id)}">${esc(p.name.slice(0, 1).toUpperCase())}</span>`;
+const avatar = (p, cls = '') =>
+  `<span class="avatar ${cls}" style="--avatar:${avatarColor(p.id)}" aria-hidden="true">${esc(p.name.slice(0, 1).toUpperCase())}</span>`;
 const genitive = (name) => (/[sxz]$/i.test(name) ? `${name}'` : `${name}s`);
 
 const SYMBOLS = { skip: '⊘', reverse: '⇄', draw2: '+2', wild: '', wild4: '+4' };
@@ -302,7 +317,8 @@ function render() {
   else html = renderLobby(S.view);
 
   if (S.screen === 'play' && !S.online) {
-    html += `<div class="banner">Forbindelsen er tabt – prøver igen…</div>`;
+    const what = S.role === 'host' ? 'Din forbindelse er tabt' : 'Ingen forbindelse til værten';
+    html += `<div class="banner" role="alert">${what} – prøver igen…</div>`;
   }
   if (S.showRules) html += renderRules();
   app.innerHTML = html;
@@ -315,7 +331,15 @@ function render() {
 function renderHome() {
   const session = load(KEYS.session);
   const code = normalizeCode(params.get('rum')) || S.lastCode || '';
+  const hero = [
+    { id: -1, color: 'red', value: '7' },
+    { id: -2, color: null, value: 'wild4' },
+    { id: -3, color: 'blue', value: 'reverse' },
+  ]
+    .map((c) => cardHTML(c))
+    .join('');
   return `<main class="home">
+    <div class="hero" aria-hidden="true">${hero}</div>
     <h1 class="logo">UNO<span>isk</span></h1>
     <p class="tagline">UNO for hele familien – hver på sin telefon</p>
     ${S.notice ? `<p class="notice">${esc(S.notice)}</p>` : ''}
@@ -347,7 +371,7 @@ function topBar(v) {
   const isHost = v.hostId === S.me;
   return `<header class="bar">
     <span class="logo small">UNO<span>isk</span></span>
-    <button class="code-chip" data-act="share" title="Del link">Kode <b>${esc(v.code)}</b></button>
+    <button class="code-chip" data-act="share" aria-label="Del spilkoden ${esc(v.code)}"><span>Kode</span> <b>${esc(v.code)}</b></button>
     <span class="bar-actions">
       <button class="icon" data-act="rules" aria-label="Regler">?</button>
       <button class="btn ghost small" data-act="leave">${isHost ? 'Afslut' : 'Forlad'}</button>
@@ -414,27 +438,35 @@ function renderGame(v) {
   const others = idx < 0 ? g.players : [...g.players.slice(idx + 1), ...g.players.slice(0, idx)];
 
   const opponents = others
-    .map((p) => {
+    .map((p, i) => {
       const connected = roster[p.id]?.connected ?? false;
       const catchable = g.unoTarget === p.id && g.inRound && g.phase === 'playing';
-      return `<div class="opp ${p.id === g.currentId ? 'turn' : ''} ${connected ? '' : 'offline'}">
-        ${avatar(p)}
-        <div class="oname">${esc(p.name)}</div>
-        <div class="ocount"><span class="mini-back"></span>${p.count}</div>
-        ${p.count === 1 && p.saidUno ? '<span class="badge">UNO</span>' : ''}
+      const turn = p.id === g.currentId;
+      const label = `${p.name}: ${p.count} kort${turn ? ', har turen' : ''}${connected ? '' : ', offline'}`;
+      return `${i > 0 ? `<span class="order" aria-hidden="true">${g.direction === 1 ? '›' : '‹'}</span>` : ''}
+      <div class="opp ${turn ? 'turn' : ''} ${connected ? '' : 'offline'}" aria-label="${esc(label)}">
+        <div class="opp-face">
+          ${avatar(roster[p.id] ?? p)}
+          <span class="count" aria-hidden="true">${p.count}</span>
+          ${p.count === 1 && p.saidUno ? '<span class="badge">UNO</span>' : ''}
+        </div>
+        <div class="oname" aria-hidden="true">${esc(p.name)}</div>
+        ${connected ? '' : '<div class="ostate" aria-hidden="true">offline</div>'}
         ${catchable ? `<button class="btn catch" data-act="catch" data-id="${esc(p.id)}">Fang!</button>` : ''}
         ${isHost && !connected ? `<button class="btn tiny" data-act="kick" data-id="${esc(p.id)}">Fjern</button>` : ''}
       </div>`;
     })
     .join('');
 
+  const currentOffline = current && !(roster[current.id]?.connected ?? true);
   let status;
   if (!g.inRound) status = 'Du er med fra næste runde';
   else if (myTurn && g.pendingDraw) status = `Læg et +kort eller træk ${g.pendingDraw}`;
   else if (myTurn && g.hasDrawn) status = 'Læg det nye kort – eller pas';
   else if (myTurn && S.selected.length) status = 'Vælg flere ens – tryk så Læg';
   else if (myTurn) status = g.playable.length ? 'Din tur!' : 'Din tur – træk et kort';
-  else status = current ? `${esc(genitive(current.name))} tur` : '';
+  else if (current) status = `${esc(genitive(current.name))} tur${currentOffline ? ' (offline)' : ''}`;
+  else status = '';
   if (!myTurn && g.pendingDraw) status += ` · +${g.pendingDraw} venter`;
 
   const selecting = myTurn && S.selected.length > 0;
@@ -451,41 +483,51 @@ function renderGame(v) {
     .join('');
 
   const canDraw = myTurn && !g.hasDrawn && !selecting;
+  const mustDraw = canDraw && (g.playable.length === 0 || g.pendingDraw > 0);
   const showUno = g.inRound && g.phase === 'playing' && meInRound && meInRound.count <= 2 && !meInRound.saidUno;
   const iAmCaught = g.unoTarget === S.me;
+  const caught = g.unoTarget && g.unoTarget !== S.me && g.inRound && g.phase === 'playing' ? roster[g.unoTarget] : null;
 
   return `${topBar(v)}
   <main class="game ${myTurn ? 'my-turn' : ''}">
-    <section class="opponents">${opponents}</section>
-    <ol class="ticker ${S.flashLog ? 'flash' : ''}">${g.log
+    <section class="opponents" aria-label="Modspillere i turrækkefølge">${opponents}</section>
+    <ol class="ticker ${S.flashLog ? 'flash' : ''}" aria-label="Seneste træk">${g.log
       .slice(-2)
       .reverse()
       .map((l) => `<li>${esc(l.text)}</li>`)
       .join('')}</ol>
     <section class="table">
-      <button class="pile ${canDraw ? 'can' : ''}" data-act="draw" ${canDraw ? '' : 'disabled'} aria-label="Træk kort">
-        <span class="card back"><span class="oval"><span class="sym">UNO</span></span></span>
-        <span class="pile-count">${g.drawCount}</span>
-      </button>
-      <div class="discard" style="--cur: var(--${g.currentColor})">
-        ${cardHTML(g.top, { cls: 'top' })}
-        <span class="color-dot" title="Farve: ${colorName(g.currentColor)}"></span>
+      <div class="piles">
+        <button class="pile ${canDraw ? 'can' : ''}" data-act="draw" ${canDraw ? '' : 'disabled'} aria-label="Træk kort (${g.drawCount} tilbage)">
+          <span class="card back"><span class="oval"><span class="sym">UNO</span></span></span>
+          <span class="pile-count">${g.drawCount}</span>
+        </button>
+        <div class="discard">
+          ${g.under ? cardHTML(g.under, { cls: 'under-card' }) : ''}
+          ${cardHTML(g.top, { cls: 'top' })}
+        </div>
       </div>
-      <div class="dir ${g.direction === 1 ? 'cw' : 'ccw'}" title="Retning">${g.direction === 1 ? '↻' : '↺'}</div>
+      <div class="table-info">
+        <span class="color-pill" style="--cur: var(--${g.currentColor})"><span class="dot"></span>${colorName(g.currentColor)}</span>
+        <span class="dir-pill">${g.direction === 1 ? '↻ Med uret' : '↺ Mod uret'}</span>
+      </div>
+      ${caught ? `<button class="catch-banner" data-act="catch" data-id="${esc(caught.id)}">${esc(caught.name)} glemte UNO – <b>Fang!</b></button>` : ''}
     </section>
-    <div class="status ${myTurn ? 'mine' : ''}">${status}</div>
-    <div class="actions">
-      ${showUno ? `<button class="btn uno ${iAmCaught || meInRound.count === 1 ? 'urgent' : ''}" data-act="uno">UNO!</button>` : ''}
-      ${
-        selecting
-          ? `<button class="btn primary" data-act="play-selected">Læg ${S.selected.length} kort</button>
-             <button class="btn ghost" data-act="cancel-select">Fortryd</button>`
-          : ''
-      }
-      ${myTurn && g.hasDrawn ? '<button class="btn" data-act="pass">Pas</button>' : ''}
-      ${canDraw ? `<button class="btn" data-act="draw">Træk${g.pendingDraw ? ` ${g.pendingDraw}` : ''}</button>` : ''}
-    </div>
-    <section class="hand ${g.hand.length > 9 ? 'tight' : ''}">${hand || (g.inRound ? '' : '<p class="muted">Du er med fra næste runde</p>')}</section>
+    <section class="dock">
+      <div class="status ${myTurn ? 'mine' : ''}" role="status" aria-live="polite">${status}</div>
+      <div class="actions">
+        ${showUno ? `<button class="btn uno ${iAmCaught || meInRound.count === 1 ? 'urgent' : ''}" data-act="uno">UNO!</button>` : ''}
+        ${
+          selecting
+            ? `<button class="btn primary" data-act="play-selected">Læg ${S.selected.length} kort</button>
+               <button class="btn ghost" data-act="cancel-select">Fortryd</button>`
+            : ''
+        }
+        ${myTurn && g.hasDrawn ? '<button class="btn" data-act="pass">Pas</button>' : ''}
+        ${canDraw ? `<button class="btn ${mustDraw ? 'primary' : ''}" data-act="draw">Træk${g.pendingDraw ? ` ${g.pendingDraw}` : ''}</button>` : ''}
+      </div>
+      <section class="hand ${g.hand.length > 9 ? 'tight' : ''}" aria-label="Dine kort">${hand || (g.inRound ? '' : '<p class="muted">Du er med fra næste runde</p>')}</section>
+    </section>
   </main>
   ${S.picking !== null ? renderPicker() : ''}
   ${g.phase === 'roundOver' ? renderRoundOver(v) : ''}`;
@@ -506,30 +548,40 @@ function renderPicker() {
 function renderRoundOver(v) {
   const g = v.game;
   const isHost = v.hostId === S.me;
-  const winner = g.players.find((p) => p.id === g.winnerId) ?? v.roster.find((p) => p.id === g.winnerId);
+  const target = v.settings.target ?? 500;
+  const winner = v.roster.find((p) => p.id === g.winnerId) ?? g.players.find((p) => p.id === g.winnerId);
   const rows = [...v.roster].sort((a, b) => b.score - a.score);
-  const champion = rows.find((p) => p.score >= 500);
+  const champion =
+    v.championId !== undefined ? v.roster.find((p) => p.id === v.championId) : rows.find((p) => p.score >= target);
   const left = Object.fromEntries(g.players.map((p) => [p.id, p.hand ?? []]));
 
-  return `<div class="overlay">
+  return `<div class="overlay" role="dialog" aria-modal="true" aria-labelledby="result-title">
     <div class="sheet result">
-      <div class="confetti">🎉</div>
-      <h2>${winner ? `${esc(winner.name)} vandt runden!` : 'Runden er slut'}</h2>
-      <p class="muted">+${g.points} point</p>
-      ${champion ? `<p class="champion">🏆 ${esc(champion.name)} har over 500 point og vinder hele spillet!</p>` : ''}
+      <div class="winner">
+        ${winner ? avatar(winner, 'xl') : ''}
+        <div>
+          <h2 id="result-title">${winner ? `${esc(winner.name)} vandt runden!` : 'Runden er slut'}</h2>
+          <p class="gain">+${g.points} point</p>
+        </div>
+      </div>
+      ${champion ? `<p class="champion">🏆 ${esc(champion.name)} har nået ${target} point og vinder hele spillet!</p>` : ''}
       <table class="scores">
-        <tr><th></th><th>Kort tilbage</th><th>Point</th></tr>
+        <thead><tr><th>Spiller</th><th>Kort tilbage</th><th class="num">Runde</th><th class="num">I alt</th></tr></thead>
+        <tbody>
         ${rows
-          .map(
-            (p) => `<tr class="${p.id === g.winnerId ? 'win' : ''}">
-              <td>${avatar(p)} ${esc(p.name)}</td>
-              <td class="left">${(left[p.id] ?? []).map((c) => cardHTML(c, { cls: 'micro' })).join('')}</td>
-              <td class="pts">${p.score}</td>
-            </tr>`,
-          )
+          .map((p) => {
+            const cards = left[p.id] ?? [];
+            return `<tr class="${p.id === g.winnerId ? 'win' : ''}">
+              <td><span class="who">${avatar(p, 'sm')}<span>${esc(p.name)}</span></span></td>
+              <td class="left">${cards.map((c) => cardHTML(c, { cls: 'micro' })).join('')}</td>
+              <td class="num">${p.id === g.winnerId ? `+${g.points}` : '–'}</td>
+              <td class="num total">${p.score}</td>
+            </tr>`;
+          })
           .join('')}
+        </tbody>
       </table>
-      <p class="muted small">Først til 500 point vinder</p>
+      <p class="muted small">Først til ${target} point vinder</p>
       ${
         isHost
           ? champion
