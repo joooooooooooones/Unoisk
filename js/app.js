@@ -169,7 +169,7 @@ function handleMessage(msg) {
 
 // Spærrer kort tid efter et træk, så et hurtigt dobbelttryk ikke bliver til Træk + Pas.
 const TAP_GUARD_MS = 400;
-const GUARDED = new Set(['play', 'draw', 'pass', 'addBot']);
+const GUARDED = new Set(['play', 'draw', 'pass']);
 let guardUntil = 0;
 
 function send(action) {
