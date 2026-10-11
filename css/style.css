@@ -341,6 +341,33 @@ input {
   font-weight: 700;
 }
 
+.avatar-pick {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 6px;
+  margin-top: -2px;
+}
+
+.avatar-pick button {
+  aspect-ratio: 1;
+  min-height: 36px;
+  border: 0;
+  border-radius: var(--r-md);
+  background: var(--surface-1);
+  font-size: 1.35rem;
+  line-height: 1;
+  padding: 0;
+  transition: transform 0.1s;
+}
+
+.avatar-pick button.on {
+  background: #fff;
+  box-shadow:
+    0 0 0 3px var(--primary),
+    var(--shadow-1);
+  transform: scale(1.08);
+}
+
 .join-row {
   display: flex;
   gap: 10px;
@@ -526,6 +553,11 @@ input {
   font-size: var(--fs-md);
   line-height: 1;
   box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85);
+}
+
+.avatar.emoji {
+  background: rgba(255, 255, 255, 0.92);
+  font-size: 1.35em;
 }
 
 .avatar.sm {

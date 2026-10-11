@@ -1,12 +1,19 @@
 import { createTransport, makeCode, normalizeCode } from './net.js';
 import { Host, cleanName } from './host.js';
 import { COLORS, colorName, MAX_PLAYERS } from './game.js';
+import { AVATARS, validAvatar } from './avatars.js';
 
 const params = new URLSearchParams(location.search);
 const isLocal = params.has('lokal');
 // I testtilstand deler fanerne ikke identitet, så hver fane er sin egen spiller.
 const storage = isLocal ? sessionStorage : localStorage;
-const KEYS = { id: 'unoisk.id', name: 'unoisk.name', session: 'unoisk.session', host: 'unoisk.host' };
+const KEYS = {
+  id: 'unoisk.id',
+  name: 'unoisk.name',
+  avatar: 'unoisk.avatar',
+  session: 'unoisk.session',
+  host: 'unoisk.host',
+};
 
 function load(key) {
   try {
@@ -33,6 +40,7 @@ const toasts = document.getElementById('toasts');
 const S = {
   me: load(KEYS.id) || newId(),
   name: load(KEYS.name) || '',
+  avatar: validAvatar(load(KEYS.avatar)),
   screen: 'home', // home | connecting | play
   role: null, // host | client
   code: null,
@@ -67,7 +75,7 @@ function startHost(code, saved = null) {
   S.online = false;
   S.host = new Host({
     code,
-    me: { id: S.me, name: S.name },
+    me: { id: S.me, name: S.name, emoji: S.avatar },
     saved,
     onView: (view, msg) => (view ? setView(view) : handleMessage(msg)),
     onSave: (snapshot) => save(KEYS.host, snapshot),
@@ -125,7 +133,7 @@ function startClient(code, resuming = false) {
         render();
         retryLater(() => startClient(S.code, true), 1500);
       });
-      conn.send({ t: 'join', id: S.me, name: S.name });
+      conn.send({ t: 'join', id: S.me, name: S.name, emoji: S.avatar });
     },
     onError: (err) => {
       if (S.role !== 'client') return;
@@ -242,7 +250,9 @@ function avatarColor(id) {
 }
 
 const avatar = (p, cls = '') =>
-  `<span class="avatar ${cls}" style="--avatar:${avatarColor(p.id)}" aria-hidden="true">${esc(p.name.slice(0, 1).toUpperCase())}</span>`;
+  p.emoji
+    ? `<span class="avatar emoji ${cls}" aria-hidden="true">${esc(p.emoji)}</span>`
+    : `<span class="avatar ${cls}" style="--avatar:${avatarColor(p.id)}" aria-hidden="true">${esc(p.name.slice(0, 1).toUpperCase())}</span>`;
 const genitive = (name) => (/[sxz]$/i.test(name) ? `${name}'` : `${name}s`);
 
 const SYMBOLS = { skip: '⊘', reverse: '⇄', draw2: '+2', wild: '', wild4: '+4' };
@@ -346,6 +356,12 @@ function renderHome() {
     <label class="field">Dit navn
       <input id="name" maxlength="16" value="${esc(S.name)}" placeholder="Fx Mormor" autocomplete="nickname" enterkeyhint="done">
     </label>
+    <div class="avatar-pick" role="radiogroup" aria-label="Vælg din figur">
+      ${AVATARS.map(
+        (a) =>
+          `<button type="button" role="radio" aria-checked="${a === S.avatar}" class="${a === S.avatar ? 'on' : ''}" data-act="avatar" data-emoji="${a}">${a}</button>`,
+      ).join('')}
+    </div>
     ${session ? `<button class="btn primary big" data-act="resume">Fortsæt spil ${esc(session.code)}</button>` : ''}
     <button class="btn ${session || code ? '' : 'primary'} big" data-act="create">Opret nyt spil</button>
     <div class="or"><span>eller deltag med en kode</span></div>
@@ -640,6 +656,16 @@ async function share() {
 }
 
 const actions = {
+  avatar(el) {
+    // Tryk igen på den valgte for at fravælge (så vises forbogstavet).
+    S.avatar = S.avatar === el.dataset.emoji ? null : el.dataset.emoji;
+    save(KEYS.avatar, S.avatar);
+    for (const b of app.querySelectorAll('.avatar-pick button')) {
+      const on = b.dataset.emoji === S.avatar;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-checked', String(on));
+    }
+  },
   create() {
     if (!readName()) return;
     const session = load(KEYS.session);
