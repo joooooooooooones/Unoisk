@@ -281,6 +281,22 @@ input {
   }
 }
 
+#install-slot:empty {
+  display: none;
+}
+
+.btn.install {
+  background: #fff;
+  color: var(--felt);
+}
+
+.install-hint {
+  margin: 0;
+  text-align: center;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
 /* ---------- Topbar ---------- */
 
 .bar {

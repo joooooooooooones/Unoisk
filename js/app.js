@@ -314,6 +314,7 @@ function renderHome() {
       <input id="code" maxlength="4" placeholder="ABCD" value="${esc(code)}" autocapitalize="characters" autocomplete="off" spellcheck="false" enterkeyhint="go">
       <button class="btn ${code && !session ? 'primary' : ''}" data-act="join">Deltag</button>
     </div>
+    <div id="install-slot">${installHTML()}</div>
     <button class="link" data-act="rules">Hvordan spiller man?</button>
   </main>`;
 }
@@ -580,6 +581,13 @@ const actions = {
     leaveGame();
   },
   share,
+  async install() {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    await installPrompt.userChoice.catch(() => null);
+    installPrompt = null;
+    updateInstallSlot();
+  },
   rules() {
     S.showRules = true;
     render();
@@ -664,6 +672,41 @@ document.addEventListener('visibilitychange', () => {
     startClient(S.code, true);
   }
 });
+
+// ---------- Installation som app ----------
+
+let installPrompt = null;
+const isInstalled = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const isAndroid = /Android/i.test(navigator.userAgent);
+
+function installHTML() {
+  if (isInstalled()) return '';
+  if (installPrompt) return '<button class="btn install big" data-act="install">📲 Installér som app</button>';
+  if (isAndroid)
+    return '<p class="install-hint">Installér som app: tryk på <b>⋮</b> i Chrome og vælg <b>Installer app</b></p>';
+  return '';
+}
+
+function updateInstallSlot() {
+  const slot = document.getElementById('install-slot');
+  if (slot) slot.innerHTML = installHTML();
+}
+
+addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  installPrompt = e;
+  updateInstallSlot();
+});
+
+addEventListener('appinstalled', () => {
+  installPrompt = null;
+  updateInstallSlot();
+  toast('Unoisk er installeret 🎉');
+});
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
 
 // ---------- Start ----------
 

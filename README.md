@@ -12,7 +12,15 @@ UNO for hele familien – hver spiller på sin egen telefon. 2–10 spillere (la
 
 > GitHub Pages er gratis for offentlige repos. Er repoet privat, kræver Pages et betalt GitHub-abonnement – ellers kan mappen lægges på fx Netlify eller Cloudflare Pages (træk mappen ind, ingen opsætning).
 
-Tip: Åbn siden på telefonen og vælg **Føj til hjemmeskærm** – så ligner den en rigtig app.
+**Spil her: https://joooooooooooones.github.io/Unoisk/**
+
+## Installér som app på Android
+
+1. Åbn linket i **Chrome**.
+2. Tryk på knappen **📲 Installér som app** på forsiden – eller tryk **⋮** øverst til højre og vælg **Installer app**.
+3. Unoisk ligger nu i app-skuffen med sit eget ikon og åbner i fuld skærm.
+
+På iPhone: åbn linket i Safari, tryk **Del** og vælg **Føj til hjemmeskærm**.
 
 ## Sådan spiller I
 
@@ -51,4 +59,5 @@ npm test    # kører testene af spillereglerne (kræver Node 20+)
 | `js/host.js` | Værten: spillerliste, point, og hvad hver spiller må se |
 | `js/net.js` | Forbindelser – PeerJS eller lokal testtilstand |
 | `js/app.js` | Brugerfladen |
+| `sw.js`, `manifest.webmanifest`, `icons/` | Gør spillet installerbart som app |
 | `vendor/peerjs.min.js` | PeerJS 1.5.4 (MIT-licens) |
