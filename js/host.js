@@ -2,9 +2,14 @@
 // Forbindelser er abstrakte: { send(msg), onData(fn), onClose(fn), close() }.
 
 import * as G from './game.js';
+import { BOT_NAMES, chooseMoves, chooseCatch } from './bot.js';
+
+const BOT_THINK_MS = [900, 1600]; // så man kan nå at se, hvad botten gør
+const BOT_CATCH_MS = [1800, 3300]; // giver mennesker tid til selv at sige UNO
+const between = ([lo, hi]) => lo + Math.random() * (hi - lo);
 
 export class Host {
-  constructor({ code, me, saved = null, onView, onSave }) {
+  constructor({ code, me, saved = null, onView, onSave, schedule = setTimeout, cancel = clearTimeout }) {
     this.code = code;
     this.hostId = me.id;
     this.roster = saved?.roster ?? [{ id: me.id, name: me.name }];
@@ -15,6 +20,9 @@ export class Host {
     this.conns = new Map();
     this.onView = onView ?? (() => {});
     this.onSave = onSave ?? (() => {});
+    this.schedule = schedule;
+    this.cancel = cancel;
+    this.timers = new Map();
   }
 
   snapshot() {
@@ -101,6 +109,15 @@ export class Host {
         }
         return;
       }
+      case 'addBot': {
+        if (!isHost) throw new G.GameError('Kun værten kan tilføje computerspillere');
+        if (this.game?.phase === 'playing') throw new G.GameError('Vent til runden er slut');
+        if (this.roster.length >= G.MAX_PLAYERS) throw new G.GameError(`Der kan højst være ${G.MAX_PLAYERS} spillere`);
+        const taken = new Set(this.roster.map((p) => p.name));
+        const name = BOT_NAMES.find((n) => !taken.has(n)) ?? this.uniqueName('Robot');
+        this.roster.push({ id: `bot-${Math.random().toString(36).slice(2, 10)}`, name, bot: true });
+        return;
+      }
       case 'kick': {
         if (!isHost) throw new G.GameError('Kun værten kan fjerne spillere');
         if (action.targetId === this.hostId) throw new G.GameError('Værten kan ikke fjerne sig selv');
@@ -153,7 +170,8 @@ export class Host {
       roster: this.roster.map((p) => ({
         id: p.id,
         name: p.name,
-        connected: p.id === this.hostId || this.conns.has(p.id),
+        connected: p.id === this.hostId || Boolean(p.bot) || this.conns.has(p.id),
+        bot: Boolean(p.bot),
         score: this.scores[p.id] ?? 0,
       })),
       game: this.game ? G.viewFor(this.game, playerId) : null,
@@ -166,9 +184,70 @@ export class Host {
       else this.conns.get(p.id)?.send({ t: 'state', view: this.viewFor(p.id) });
     }
     this.onSave(this.snapshot());
+    this.runBots();
+  }
+
+  // ---- Computerspillere ----
+
+  later(key, ms, fn) {
+    if (this.timers.has(key)) this.cancel(this.timers.get(key));
+    this.timers.set(
+      key,
+      this.schedule(() => {
+        this.timers.delete(key);
+        fn();
+      }, ms),
+    );
+  }
+
+  isBot(id) {
+    return this.roster.some((p) => p.id === id && p.bot);
+  }
+
+  runBots() {
+    const g = this.game;
+    if (!g || g.phase !== 'playing') return;
+    const current = G.currentPlayer(g).id;
+    if (this.isBot(current)) this.later('turn', between(BOT_THINK_MS), () => this.botTurn(current));
+    if (g.unoTarget && !this.timers.has('catch')) {
+      const target = g.unoTarget;
+      this.later('catch', between(BOT_CATCH_MS), () => this.botCatch(target));
+    }
+  }
+
+  botTurn(id) {
+    const g = this.game;
+    if (!g || g.phase !== 'playing' || G.currentPlayer(g).id !== id) return;
+    const before = g.phase;
+    try {
+      for (const move of chooseMoves(G.viewFor(g, id), id)) G.applyAction(g, id, move);
+    } catch (err) {
+      // Bør ikke ske – men et spil må aldrig gå i stå på en bot.
+      console.error(err);
+      for (const type of ['draw', 'pass']) {
+        try {
+          G.applyAction(g, id, { type });
+          break;
+        } catch {
+          // prøv næste
+        }
+      }
+    }
+    this.scoreIfFinished(before);
+    this.broadcast();
+  }
+
+  botCatch(target) {
+    const g = this.game;
+    if (!g || g.phase !== 'playing' || g.unoTarget !== target) return;
+    const bots = g.players.filter((p) => p.id !== target && this.isBot(p.id));
+    const catcher = bots.find((b) => chooseCatch(G.viewFor(g, b.id), b.id));
+    if (catcher) this.act(catcher.id, { type: 'catch', targetId: target });
   }
 
   shutdown() {
+    for (const timer of this.timers.values()) this.cancel(timer);
+    this.timers.clear();
     for (const conn of this.conns.values()) {
       conn.send({ t: 'ended' });
       conn.close();

@@ -100,3 +100,87 @@ test('værten kan fjerne en spiller', () => {
     ['h', 'c2'],
   );
 });
+
+// Falsk tidsplan: timere køres først, når testen beder om det.
+function fakeClock() {
+  let id = 0;
+  const pending = new Map();
+  return {
+    schedule: (fn) => (pending.set(++id, fn), id),
+    cancel: (t) => pending.delete(t),
+    runAll() {
+      const fns = [...pending.values()];
+      pending.clear();
+      fns.forEach((fn) => fn());
+      return fns.length;
+    },
+  };
+}
+
+test('værten kan tilføje computerspillere, som spiller selv', () => {
+  const clock = fakeClock();
+  const views = [];
+  const host = new Host({
+    code: 'ABCD',
+    me: { id: 'h', name: 'Mor' },
+    onView: (v) => v && views.push(v),
+    schedule: clock.schedule,
+    cancel: clock.cancel,
+  });
+  const far = join(host, 'c1', 'Far');
+  far.receive({ t: 'action', action: { type: 'addBot' } });
+  assert.equal(far.last().t, 'error', 'kun værten kan tilføje bots');
+
+  host.act('h', { type: 'addBot' });
+  host.act('h', { type: 'addBot' });
+  const roster = host.viewFor('h').roster;
+  assert.deepEqual(
+    roster.map((p) => [p.name, p.bot, p.connected]),
+    [
+      ['Mor', false, true],
+      ['Far', false, true],
+      ['Robo-Rasmus', true, true],
+      ['Bip-Bodil', true, true],
+    ],
+  );
+
+  host.act('h', { type: 'start' });
+  assert.throws(() => host.apply('h', { type: 'addBot' }), /runden er slut/);
+
+  // Menneskerne trækker/passer bare; bottene skal selv drive spillet.
+  let guard = 0;
+  while (host.game.phase === 'playing' && guard++ < 3000) {
+    const cur = host.game.players[host.game.current].id;
+    if (cur === 'h' || cur === 'c1') host.act(cur, { type: host.game.hasDrawn ? 'pass' : 'draw' });
+    else assert.ok(clock.runAll() > 0, 'en bot skal have en planlagt tur');
+  }
+  assert.equal(host.game.phase, 'roundOver');
+  assert.ok(host.isBot(host.game.winnerId), 'bots vinder over spillere, der aldrig lægger');
+  assert.ok(host.scores[host.game.winnerId] > 0);
+});
+
+test('en bot kan fjernes, og gemte værtsdata uden bot-felt kan stadig åbnes', () => {
+  const { host } = makeHost();
+  host.act('h', { type: 'addBot' });
+  const botId = host.roster[1].id;
+  host.act('h', { type: 'kick', targetId: botId });
+  assert.equal(host.roster.length, 1);
+
+  const old = {
+    code: 'QWER',
+    hostId: 'h',
+    roster: [
+      { id: 'h', name: 'Mor' },
+      { id: 'x', name: 'Far' },
+    ],
+    scores: {},
+    game: null,
+    round: 0,
+  };
+  const restored = new Host({ code: 'QWER', me: { id: 'h', name: 'Mor' }, saved: old });
+  assert.deepEqual(
+    restored.viewFor('h').roster.map((p) => p.bot),
+    [false, false],
+  );
+  assert.equal(restored.settings.multiPlay, true, 'manglende husregler får standardværdi');
+});
