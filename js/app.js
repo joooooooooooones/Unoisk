@@ -419,12 +419,19 @@ function renderLobby(v) {
             (p) => `<li class="${p.connected ? '' : 'offline'}">
             ${avatar(p)}
             <span class="pname">${esc(p.name)}${p.id === v.hostId ? ' 👑' : ''}${p.id === S.me ? ' <span class="muted">(dig)</span>' : ''}</span>
+            ${p.bot ? '<span class="tag">computer</span>' : ''}
             ${p.connected ? '' : '<span class="muted">offline</span>'}
             ${isHost && p.id !== S.me ? `<button class="x" data-act="kick" data-id="${esc(p.id)}" aria-label="Fjern ${esc(p.name)}">✕</button>` : ''}
           </li>`,
           )
           .join('')}
       </ul>
+      ${
+        isHost && v.roster.length < MAX_PLAYERS
+          ? `<button class="btn ghost add-bot" data-act="add-bot">🤖 Tilføj computerspiller</button>
+             ${v.roster.length < 3 ? '<p class="hint">Er I få? Computerspillere fylder bordet op – og man kan øve sig alene.</p>' : ''}`
+          : ''
+      }
     </section>
     <section class="panel">
       <h2>Husregler</h2>
@@ -725,7 +732,10 @@ const actions = {
   },
   kick(el) {
     const p = S.view.roster.find((r) => r.id === el.dataset.id);
-    if (p && confirm(`Fjern ${p.name} fra spillet?`)) send({ type: 'kick', targetId: p.id });
+    if (p && (p.bot || confirm(`Fjern ${p.name} fra spillet?`))) send({ type: 'kick', targetId: p.id });
+  },
+  'add-bot'() {
+    send({ type: 'addBot' });
   },
   play(el) {
     const g = S.view.game;

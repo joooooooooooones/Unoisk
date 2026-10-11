@@ -13,7 +13,15 @@ const BOT_CATCH_MS = [1800, 3300]; // giver mennesker tid til selv at sige UNO
 const between = ([lo, hi]) => lo + Math.random() * (hi - lo);
 
 export class Host {
-  constructor({ code, me, saved = null, onView, onSave, schedule = setTimeout, cancel = clearTimeout }) {
+  constructor({
+    code,
+    me,
+    saved = null,
+    onView,
+    onSave,
+    schedule = (fn, ms) => setTimeout(fn, ms),
+    cancel = (t) => clearTimeout(t),
+  }) {
     this.code = code;
     this.hostId = me.id;
     this.roster = saved?.roster ?? [{ id: me.id, name: me.name }];

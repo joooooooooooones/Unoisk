@@ -532,6 +532,27 @@ input {
   font-weight: 800;
 }
 
+.tag {
+  font-size: var(--fs-xs);
+  font-weight: 800;
+  color: var(--muted);
+  background: var(--surface-2);
+  border-radius: var(--r-pill);
+  padding: 2px 8px;
+}
+
+.add-bot {
+  width: 100%;
+  margin-top: var(--sp-2);
+}
+
+.hint {
+  margin: var(--sp-2) 0 0;
+  font-size: var(--fs-sm);
+  color: var(--muted);
+  font-weight: 600;
+}
+
 .x {
   width: var(--touch);
   height: var(--touch);
