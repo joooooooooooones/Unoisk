@@ -1,6 +1,6 @@
 import { createTransport, makeCode, normalizeCode } from './net.js';
 import { Host, TARGETS, cleanName } from './host.js';
-import { COLORS, colorName, MAX_PLAYERS } from './game.js';
+import { COLORS, cardName, colorName, MAX_PLAYERS } from './game.js';
 import { AVATARS, validAvatar } from './avatars.js';
 
 const params = new URLSearchParams(location.search);
@@ -271,17 +271,20 @@ function sortHand(hand) {
   );
 }
 
-function cardHTML(card, { cls = '', act = '', order = 0 } = {}) {
+// label: tekst til skærmlæsere; null = rent pynt (skjules for skærmlæsere).
+function cardHTML(card, { cls = '', act = '', order = 0, label = cardName(card) } = {}) {
   const sym = SYMBOLS[card.value] ?? card.value;
   const color = card.color ? `c-${card.color}` : 'c-wild';
   const under = card.value === '6' || card.value === '9' ? ' under' : '';
   const tag = act ? 'button' : 'div';
   let attrs = act ? ` data-act="${act}" data-id="${card.id}" type="button"` : '';
   if (order) attrs += ` data-order="${order}"`;
+  if (label === null) attrs += ' aria-hidden="true"';
+  else attrs += `${act ? '' : ' role="img"'} aria-label="${esc(label)}"`;
   return `<${tag} class="card ${color} v-${card.value} ${cls}"${attrs}>
-    <span class="corner tl${under}">${sym}</span>
-    <span class="oval"><span class="sym${under}">${sym}</span></span>
-    <span class="corner br${under}">${sym}</span>
+    <span class="corner tl${under}" aria-hidden="true">${sym}</span>
+    <span class="oval" aria-hidden="true"><span class="sym${under}">${sym}</span></span>
+    <span class="corner br${under}" aria-hidden="true">${sym}</span>
   </${tag}>`;
 }
 
@@ -335,7 +338,18 @@ function releaseWakeLock() {
 
 let lastSheets = '';
 
+// Nøgle for det element, der har fokus, så fokus kan sættes igen efter en omtegning.
+function focusKey(el) {
+  if (!el || !app.contains(el) || !el.dataset?.act) return el?.id ? `#${el.id}` : null;
+  const d = el.dataset;
+  return `[data-act="${d.act}"]${['id', 'emoji', 'color', 'target']
+    .filter((k) => d[k] !== undefined)
+    .map((k) => `[data-${k}="${CSS.escape(d[k])}"]`)
+    .join('')}`;
+}
+
 function render() {
+  const focused = focusKey(document.activeElement);
   const handEl = app.querySelector('.hand');
   const scroll = handEl?.scrollLeft ?? 0;
 
@@ -361,6 +375,13 @@ function render() {
 
   const newHand = app.querySelector('.hand');
   if (newHand) newHand.scrollLeft = scroll;
+  if (focused && document.activeElement === document.body) {
+    try {
+      app.querySelector(focused)?.focus({ preventScroll: true });
+    } catch {
+      // ugyldig selektor – ingen fokus at genskabe
+    }
+  }
 }
 
 function renderHome() {
@@ -371,7 +392,7 @@ function renderHome() {
     { id: -2, color: null, value: 'wild4' },
     { id: -3, color: 'blue', value: 'reverse' },
   ]
-    .map((c) => cardHTML(c))
+    .map((c) => cardHTML(c, { label: null }))
     .join('');
   return `<main class="home">
     <div class="hero" aria-hidden="true">${hero}</div>
@@ -528,7 +549,7 @@ function renderGame(v) {
   if (!g.inRound) status = 'Du er med fra næste runde';
   else if (myTurn && g.pendingDraw) status = `Læg et +kort eller træk ${g.pendingDraw}`;
   else if (myTurn && g.hasDrawn) status = 'Læg det nye kort – eller pas';
-  else if (myTurn && S.selected.length) status = 'Vælg flere ens – tryk så Læg';
+  else if (myTurn && S.selected.length) status = 'Vælg flere ens – eller tryk igen for at lægge';
   else if (myTurn) status = g.playable.length ? 'Din tur!' : 'Din tur – træk et kort';
   else if (current) status = `${esc(genitive(current.name))} tur${currentOffline ? ' (offline)' : ''}`;
   else status = '';
@@ -543,7 +564,15 @@ function renderGame(v) {
       if (selecting) state = order ? 'selected' : c.value === firstSelected.value ? 'addable' : 'dim';
       else if (myTurn) state = g.playable.includes(c.id) ? 'playable' : 'dim';
       const cls = [state, c.id === g.drawnCardId ? 'drawn' : ''].join(' ');
-      return cardHTML(c, { cls, act: 'play', order });
+      const hint =
+        state === 'playable'
+          ? ', kan lægges'
+          : state === 'selected'
+            ? ', valgt'
+            : state === 'addable'
+              ? ', kan lægges med'
+              : '';
+      return cardHTML(c, { cls, act: 'play', order, label: cardName(c) + hint });
     })
     .join('');
 
@@ -568,8 +597,8 @@ function renderGame(v) {
           <span class="pile-count">${g.drawCount}</span>
         </button>
         <div class="discard">
-          ${g.under ? cardHTML(g.under, { cls: 'under-card' }) : ''}
-          ${cardHTML(g.top, { cls: 'top' })}
+          ${g.under ? cardHTML(g.under, { cls: 'under-card', label: null }) : ''}
+          ${cardHTML(g.top, { cls: 'top', label: `Øverst: ${cardName(g.top)}, farve ${colorName(g.currentColor)}` })}
         </div>
       </div>
       <div class="table-info">
@@ -638,7 +667,7 @@ function renderRoundOver(v) {
             const cards = left[p.id] ?? [];
             return `<tr class="${p.id === g.winnerId ? 'win' : ''}">
               <td><span class="who">${avatar(p, 'sm')}<span>${esc(p.name)}</span></span></td>
-              <td class="left">${cards.map((c) => cardHTML(c, { cls: 'micro' })).join('')}</td>
+              <td class="left" aria-label="${cards.length} kort">${cards.map((c) => cardHTML(c, { cls: 'micro', label: null })).join('')}</td>
               <td class="num">${p.id === g.winnerId ? `+${g.points}` : '–'}</td>
               <td class="num total">${p.score}</td>
             </tr>`;
@@ -812,7 +841,8 @@ const actions = {
 
     if (S.selected.length) {
       const first = g.hand.find((c) => c.id === S.selected[0]);
-      if (id === first.id) S.selected = [];
+      if (id === first.id)
+        return actions['play-selected'](); // tryk igen på kortet = læg
       else if (S.selected.includes(id)) S.selected = S.selected.filter((x) => x !== id);
       else if (card.value === first.value) S.selected.push(id);
       else toast('Vælg kort med samme tal eller symbol');
