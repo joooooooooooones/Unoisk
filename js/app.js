@@ -2,6 +2,7 @@ import { createTransport, makeCode, normalizeCode } from './net.js';
 import { Host, TARGETS, cleanName } from './host.js';
 import { COLORS, cardName, colorName, MAX_PLAYERS } from './game.js';
 import { AVATARS, validAvatar } from './avatars.js';
+import { measure, animateChanges, hideInFlight } from './fx.js';
 
 const params = new URLSearchParams(location.search);
 const isLocal = params.has('lokal');
@@ -58,6 +59,7 @@ const S = {
   lastLogId: 0,
   flashLog: false,
   lastRound: 0,
+  lastGame: null, // spillet ved sidste opdatering – til animationerne
   wasMyTurn: false,
   retry: null,
 };
@@ -193,7 +195,16 @@ function leaveGame(notice = '') {
   setTimeout(() => link?.close(), 400);
   save(KEYS.session, null);
   if (role === 'host') save(KEYS.host, null);
-  Object.assign(S, { link: null, view: null, screen: 'home', notice, picking: null, lastRound: 0, lastLogId: 0 });
+  Object.assign(S, {
+    link: null,
+    view: null,
+    screen: 'home',
+    notice,
+    picking: null,
+    lastRound: 0,
+    lastLogId: 0,
+    lastGame: null,
+  });
   releaseWakeLock();
   render();
 }
@@ -202,6 +213,10 @@ function leaveGame(notice = '') {
 
 function setView(view) {
   const first = !S.view;
+  // Fra lobbyen til første runde: en tom "runde 0", så kortene deles ud.
+  const prevGame = S.lastGame ?? (S.view && view.game ? { round: 0 } : null);
+  // Hos værten deler visningen hånd med selve spillet, så gem en kopi til næste sammenligning.
+  S.lastGame = view.game ? { ...view.game, hand: [...view.game.hand] } : null;
   S.view = view;
   S.screen = 'play';
   const g = view.game;
@@ -223,7 +238,7 @@ function setView(view) {
     }
   }
   keepAwake();
-  render();
+  render(prevGame);
 }
 
 // ---------- Hjælpere ----------
@@ -278,7 +293,8 @@ function cardHTML(card, { cls = '', act = '', order = 0, label = cardName(card) 
   const color = card.color ? `c-${card.color}` : 'c-wild';
   const under = card.value === '6' || card.value === '9' ? ' under' : '';
   const tag = act ? 'button' : 'div';
-  let attrs = act ? ` data-act="${act}" data-id="${card.id}" type="button"` : '';
+  let attrs = ` data-cid="${card.id}"`;
+  if (act) attrs += ` data-act="${act}" data-id="${card.id}" type="button"`;
   if (order) attrs += ` data-order="${order}"`;
   if (label === null) attrs += ' aria-hidden="true"';
   else attrs += `${act ? '' : ' role="img"'} aria-label="${esc(label)}"`;
@@ -349,10 +365,12 @@ function focusKey(el) {
     .join('')}`;
 }
 
-function render() {
+// prevGame: spillet, som det så ud før denne opdatering – så ændringerne kan animeres.
+function render(prevGame = null) {
   const focused = focusKey(document.activeElement);
   const handEl = app.querySelector('.hand');
   const scroll = handEl?.scrollLeft ?? 0;
+  const before = prevGame && S.view?.game ? measure(app) : null;
 
   let html;
   if (S.screen === 'home') html = renderHome();
@@ -376,6 +394,11 @@ function render() {
 
   const newHand = app.querySelector('.hand');
   if (newHand) newHand.scrollLeft = scroll;
+  if (before) {
+    const faceHTML = (c) => cardHTML(c, { label: null });
+    animateChanges(app, { prev: prevGame, next: S.view.game, me: S.me, before, faceHTML });
+  }
+  hideInFlight(app);
   if (focused && document.activeElement === document.body) {
     try {
       app.querySelector(focused)?.focus({ preventScroll: true });
@@ -530,7 +553,7 @@ function renderGame(v) {
       const turn = p.id === g.currentId;
       const label = `${p.name}: ${p.count} kort${turn ? ', har turen' : ''}${connected ? '' : ', offline'}`;
       return `${i > 0 ? `<span class="order" aria-hidden="true">${g.direction === 1 ? '›' : '‹'}</span>` : ''}
-      <div class="opp ${turn ? 'turn' : ''} ${connected ? '' : 'offline'}" role="group" aria-label="${esc(label)}">
+      <div class="opp ${turn ? 'turn' : ''} ${connected ? '' : 'offline'}" data-pid="${esc(p.id)}" role="group" aria-label="${esc(label)}">
         <div class="opp-face">
           ${avatar(roster[p.id] ?? p)}
           <span class="count" aria-hidden="true">${p.count}</span>

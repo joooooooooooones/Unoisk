@@ -954,14 +954,6 @@ body:has(.game) #app {
 
 .discard .card.top {
   box-shadow: var(--shadow-2);
-  animation: drop 0.25s ease-out;
-}
-
-@keyframes drop {
-  from {
-    transform: scale(1.25) rotate(-8deg);
-    opacity: 0.4;
-  }
 }
 
 .table-info {
@@ -1060,8 +1052,13 @@ body:has(.game) #app {
   overflow-x: auto;
   padding: 18px var(--sp-4) var(--sp-3);
   scroll-snap-type: x proximity;
+  scroll-padding-inline: var(--sp-4);
   scrollbar-width: none;
   mask-image: linear-gradient(to right, transparent 0, #000 12px, #000 calc(100% - 12px), transparent 100%);
+}
+
+.hand.settling {
+  scroll-snap-type: none;
 }
 
 .hand::-webkit-scrollbar {
@@ -1083,6 +1080,7 @@ body:has(.game) #app {
 
 .hand .card:last-child {
   margin-right: 0;
+  scroll-snap-align: end; /* så enden af hånden også er et snappunkt */
 }
 
 .hand .card.playable {
@@ -1268,6 +1266,28 @@ body:has(.game) #app {
 .card.micro .sym {
   -webkit-text-stroke: 0;
   font-style: normal;
+}
+
+/* ---------- Kort i luften (js/fx.js) ---------- */
+
+#fx {
+  position: fixed;
+  inset: 0;
+  z-index: 19; /* under arkene, så resultatet dækker et sidste kort i luften */
+  pointer-events: none;
+  overflow: hidden;
+}
+
+#fx .card {
+  position: absolute;
+  margin: 0;
+  box-shadow: var(--shadow-2);
+  will-change: transform;
+}
+
+/* Det rigtige kort venter usynligt, til kopien er landet */
+.card.landing {
+  visibility: hidden;
 }
 
 /* ---------- Overlays ---------- */
