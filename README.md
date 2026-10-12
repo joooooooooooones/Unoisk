@@ -31,7 +31,8 @@ På iPhone: åbn linket i Safari, tryk **Del** og vælg **Føj til hjemmeskærm*
 - Læg et kort med samme farve, tal eller symbol. Kort, der kan lægges, lyser op. Kan du ikke lægge noget, så tryk på bunken.
 - Tryk **UNO!** når du har to kort tilbage (eller lige efter du har lagt det næstsidste). Lægger du flere ens ned til ét kort, kan du trykke UNO! i din tur, før du lægger. Glemmer du det, kan de andre trykke **Fang!**, og så trækker du 2 kort.
 - Den første uden kort vinder runden og får point for de andres kort. Slutter runden på et +2/+4, trækker næste spiller kortene først, og de tæller med (officiel regel). Først til pointmålet vinder hele spillet.
-- Tryk på **Kode ABCD** øverst for at vise QR-koden igen – nye spillere kommer med fra næste runde.
+- Tryk på **koden** øverst for at vise QR-koden igen – nye spillere kommer med fra næste runde.
+- Kortene siger lyd, når de lægges og trækkes, og der lyder et lille ding, når det er din tur. Tryk på **🔊** øverst for at slå lyden fra – det huskes på telefonen.
 
 Husregler, som værten kan slå til i lobbyen:
 
