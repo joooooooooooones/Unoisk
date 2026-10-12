@@ -45,6 +45,7 @@ Godt at vide:
 - Værtens telefon *er* spillet, så den skal holde siden åben. Appen prøver at holde skærmen tændt.
 - Mister en spiller forbindelsen (skærmen slukker, siden lukkes), kommer de automatisk tilbage med de samme kort, når de åbner siden igen. Det gælder også værten.
 - Er nogens telefon død, kan værten trykke **Fjern** ved spilleren, så spillet kan fortsætte. Pointene huskes, hvis spilleren kommer tilbage.
+- Går en runde i stå, kan værten altid trykke **Menu** øverst og vælge **Start ny runde** (runden giver ingen point, de andre point bevares), **Tilbage til lobbyen** (fx for at tage nye spillere med eller tilføje en computerspiller), **Nyt spil** eller **Afslut spillet for alle**.
 - Nye spillere kan komme med mellem to runder.
 
 ## Udvikling

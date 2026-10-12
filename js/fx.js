@@ -157,7 +157,7 @@ function revealInHand(root, id) {
 export function animateChanges(root, { prev, next, me, before, faceHTML, sound = () => {} }) {
   if (!prev || !next || !before || document.hidden) return;
   const still = reduced.matches;
-  const newRound = prev.round !== next.round;
+  const newRound = prev.round !== next.round || prev.deal !== next.deal;
   const oldHand = newRound ? [] : prev.hand;
   const oldIds = new Set(oldHand.map((c) => c.id));
   const newIds = new Set(next.hand.map((c) => c.id));
