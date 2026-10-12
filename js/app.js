@@ -3,6 +3,7 @@ import { Host, TARGETS, cleanName } from './host.js';
 import { COLORS, cardName, colorName, MAX_PLAYERS } from './game.js';
 import { AVATARS, validAvatar } from './avatars.js';
 import { measure, animateChanges, hideInFlight } from './fx.js';
+import * as sound from './sound.js';
 
 const params = new URLSearchParams(location.search);
 const isLocal = params.has('lokal');
@@ -230,7 +231,11 @@ function setView(view) {
     S.lastLogId = Math.max(S.lastLogId, latest);
 
     const myTurn = g.phase === 'playing' && g.currentId === S.me;
-    if (myTurn && !S.wasMyTurn) navigator.vibrate?.(120);
+    if (myTurn && !S.wasMyTurn) {
+      navigator.vibrate?.(120);
+      sfx('turn', first ? 0 : 400); // efter lyden af det kort, der lige blev lagt
+    }
+    eventSounds(prevGame, g);
     S.wasMyTurn = myTurn;
     if (S.picking !== null && !g.playable.includes(S.picking)) S.picking = null;
     if (!myTurn || !g.playable.includes(S.selected[0]) || S.selected.some((id) => !g.hand.some((c) => c.id === id))) {
@@ -239,6 +244,15 @@ function setView(view) {
   }
   keepAwake();
   render(prevGame);
+}
+
+const sfx = (name, delay = 0) => setTimeout(() => sound.play(name), delay);
+
+// Lyde for det, der ikke er et kort i luften: UNO og rundens afslutning.
+function eventSounds(prev, g) {
+  if (!prev?.players || prev.round !== g.round) return;
+  if (g.players.some((p) => p.saidUno && !prev.players.find((q) => q.id === p.id)?.saidUno)) sfx('uno', 200);
+  if (prev.phase === 'playing' && g.phase === 'roundOver') sfx(g.winnerId === S.me ? 'win' : 'lose', 450);
 }
 
 // ---------- Hjælpere ----------
@@ -396,7 +410,7 @@ function render(prevGame = null) {
   if (newHand) newHand.scrollLeft = scroll;
   if (before) {
     const faceHTML = (c) => cardHTML(c, { label: null });
-    animateChanges(app, { prev: prevGame, next: S.view.game, me: S.me, before, faceHTML });
+    animateChanges(app, { prev: prevGame, next: S.view.game, me: S.me, before, faceHTML, sound: sound.play });
   }
   hideInFlight(app);
   if (focused && document.activeElement === document.body) {
@@ -459,6 +473,7 @@ function topBar(v) {
     <span class="logo small">UNO<span>isk</span></span>
     <button class="code-chip" data-act="invite" aria-label="Inviter flere – kode ${esc(v.code)}"><span>Kode</span> <b>${esc(v.code)}</b></button>
     <span class="bar-actions">
+      <button class="icon" data-act="sound" aria-pressed="${sound.isOn()}" aria-label="Lyd">${sound.isOn() ? '🔊' : '🔇'}</button>
       <button class="icon" data-act="rules" aria-label="Regler">?</button>
       <button class="btn ghost small" data-act="leave">${isHost ? 'Afslut' : 'Forlad'}</button>
     </span>
@@ -740,7 +755,7 @@ function renderRules() {
         <li>Når du lægger dit næstsidste kort, skal du trykke <b>UNO!</b> Glemmer du det, kan de andre trykke <b>Fang!</b> – så trækker du 2 kort.</li>
         <li>Den første uden kort vinder runden og får point for de andres kort (tal = værdien, action-kort = 20, sorte = 50). Den første, der når pointmålet, vinder – værten vælger 100, 200, 300 eller 500 (officielt).</li>
       </ol>
-      <p class="muted small">Tip: Hold skærmen tændt under spillet. Mister nogen forbindelsen, kommer de automatisk tilbage, når de åbner siden igen.</p>
+      <p class="muted small">Tip: Hold skærmen tændt under spillet. Mister nogen forbindelsen, kommer de automatisk tilbage, når de åbner siden igen. Tryk på 🔊 øverst for at slå lyden fra.</p>
       <button class="btn primary" data-act="close-rules">Forstået</button>
     </div>
   </div>`;
@@ -841,6 +856,11 @@ const actions = {
     await installPrompt.userChoice.catch(() => null);
     installPrompt = null;
     updateInstallSlot();
+  },
+  sound() {
+    sound.setOn(!sound.isOn());
+    toast(sound.isOn() ? 'Lyd slået til' : 'Lyd slået fra');
+    render();
   },
   rules() {
     S.showRules = true;

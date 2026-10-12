@@ -1535,10 +1535,27 @@ body:has(.game) #app {
   color: var(--muted);
 }
 
-/* Små telefoner */
-@media (max-width: 360px) {
+/* Smalle telefoner: plads til lydknappen i toppen */
+@media (max-width: 420px) {
   .code-chip span {
     display: none;
+  }
+}
+
+/* Små telefoner */
+@media (max-width: 360px) {
+  .bar {
+    gap: var(--sp-1);
+    padding-inline: var(--sp-2);
+  }
+  .bar-actions {
+    gap: var(--sp-1);
+  }
+  .code-chip {
+    padding-inline: 10px;
+  }
+  .bar .logo.small {
+    font-size: var(--fs-lg);
   }
   .invite {
     flex-direction: column;

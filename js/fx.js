@@ -2,7 +2,7 @@
 // og fra trækbunken ud til hånden eller modspilleren.
 // Skærmen tegnes helt om ved hver opdatering, så vi måler positionerne før og efter
 // og lader kopier af kortene flyve imellem dem i et lag oven på spillet.
-// De rigtige kort holdes skjult, til kopien er landet.
+// De rigtige kort holdes skjult, til kopien er landet. Lyden spilles, når kortet lander.
 
 const PLAY_MS = 380;
 const DRAW_MS = 440;
@@ -85,9 +85,14 @@ function fly(
     fromAvatar = false,
     toAvatar = false,
     onLand,
+    sound,
   },
 ) {
-  if (!from || !to || !width) return;
+  // Uden animation (eller uden et sted at flyve fra/til) kommer lyden alligevel, når kortet ville lande.
+  if (reduced.matches || !from || !to || !width) {
+    if (sound) setTimeout(sound, delay + ms * 0.8);
+    return;
+  }
   const holder = document.createElement('div');
   holder.innerHTML = html;
   const el = holder.firstElementChild;
@@ -116,6 +121,7 @@ function fly(
     el.remove();
     if (id !== null) land(root, id, flip ? [{ scale: '0 1' }, { scale: '1 1' }] : [{ scale: '1.1' }, { scale: '1' }]);
     onLand?.();
+    sound?.();
   };
   anim.finished.then(done, done);
 }
@@ -147,20 +153,22 @@ function revealInHand(root, id) {
 }
 
 // prev/next er spillets visning før og efter; before er målt på den gamle skærm.
-export function animateChanges(root, { prev, next, me, before, faceHTML }) {
-  if (!prev || !next || !before || reduced.matches || document.hidden) return;
+// sound(navn) spiller en lyd – kaldes, når kortene lander.
+export function animateChanges(root, { prev, next, me, before, faceHTML, sound = () => {} }) {
+  if (!prev || !next || !before || document.hidden) return;
+  const still = reduced.matches;
   const newRound = prev.round !== next.round;
   const oldHand = newRound ? [] : prev.hand;
   const oldIds = new Set(oldHand.map((c) => c.id));
   const newIds = new Set(next.hand.map((c) => c.id));
   const drawnByMe = next.hand.filter((c) => !oldIds.has(c.id));
   const handChanged = drawnByMe.length > 0 || oldHand.some((c) => !newIds.has(c.id));
-  if (handChanged) settle(root, 300 + 900 + DRAW_MS);
-  if (drawnByMe.length === 1) revealInHand(root, drawnByMe[0].id);
+  if (handChanged && !still) settle(root, 300 + 900 + DRAW_MS);
+  if (drawnByMe.length === 1 && !still) revealInHand(root, drawnByMe[0].id);
   const after = measure(root);
 
   // Resten af hånden glider på plads, når et kort forsvinder eller kommer til.
-  if (!newRound) {
+  if (!newRound && !still) {
     for (const el of root.querySelectorAll('.hand .card[data-cid]')) {
       const a = before.hand.get(Number(el.dataset.cid));
       const b = rectOf(el);
@@ -200,6 +208,7 @@ export function animateChanges(root, { prev, next, me, before, faceHTML }) {
         ms: PLAY_MS,
         id: c.id === next.top.id || c.id === next.under?.id ? c.id : null,
         fromAvatar,
+        sound: () => sound('play'),
       }),
     );
     wait = (cards.length - 1) * step + PLAY_MS * 0.6;
@@ -216,6 +225,7 @@ export function animateChanges(root, { prev, next, me, before, faceHTML }) {
       ms: DRAW_MS,
       id: c.id,
       flip: true,
+      sound: () => sound('draw'),
     }),
   );
   if (newRound) return;
@@ -233,6 +243,7 @@ export function animateChanges(root, { prev, next, me, before, faceHTML }) {
         ms: DRAW_MS,
         toAvatar: true,
         onLand: () => bump(root, q.id),
+        sound: () => sound('draw'),
       });
   }
 }
