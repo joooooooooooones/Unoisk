@@ -288,3 +288,81 @@ test('gamle gemte data, hvor nogen allerede har nået 500, giver en vinder', () 
   assert.equal(host.championId, 'c1');
   assert.equal(host.viewFor('h').champion.name, 'Far');
 });
+
+test('værten kan altid starte en ny runde midt i en runde – uden point', () => {
+  const { host } = makeHost();
+  const far = join(host, 'c1', 'Far');
+  host.act('h', { type: 'start' });
+  const first = host.game;
+  assert.throws(() => host.apply('h', { type: 'start' }), /allerede i gang/, 'et almindeligt start-tryk afbryder ikke');
+
+  far.receive({ t: 'action', action: { type: 'start', restart: true } });
+  assert.equal(far.last().t, 'error', 'kun værten kan starte forfra');
+
+  host.act('h', { type: 'start', restart: true });
+  assert.notEqual(host.game, first);
+  assert.equal(host.game.phase, 'playing');
+  assert.equal(host.round, 2);
+  assert.deepEqual(host.scores, {}, 'den afbrudte runde giver ingen point');
+  assert.equal(far.last().view.game.hand.length, 7);
+});
+
+test('nyt spil midt i første runde giver en ny uddeling', () => {
+  const { host } = makeHost();
+  join(host, 'c1', 'Far');
+  host.act('h', { type: 'start' });
+  const deal = host.viewFor('h').deal;
+  host.act('h', { type: 'start', restart: true, resetScores: true });
+  const v = host.viewFor('h');
+  assert.equal(v.round, 1);
+  assert.equal(v.deal, deal + 1, 'telefonerne skal kunne se, at kortene er delt ud på ny');
+});
+
+test('værten kan gå tilbage til lobbyen midt i en runde og tage nye spillere med', () => {
+  const { host } = makeHost();
+  join(host, 'c1', 'Far');
+  host.act('h', { type: 'start' });
+  host.act('h', { type: 'lobby' });
+  assert.equal(host.game, null);
+
+  const ny = join(host, 'c2', 'Ida');
+  assert.notEqual(ny.sent[0].t, 'rejected');
+  host.act('h', { type: 'addBot' });
+  host.act('h', { type: 'start' });
+  assert.equal(host.game.players.length, 4);
+});
+
+test('bliver værten alene, kommer spillet ikke i stå', () => {
+  const { host, views } = makeHost();
+  join(host, 'c1', 'Far');
+  host.act('h', { type: 'start' });
+  host.removePlayer('c1');
+  assert.equal(host.game.phase, 'roundOver');
+
+  host.act('h', { type: 'start' });
+  assert.equal(views.at(-1).t, 'error');
+  assert.match(views.at(-1).msg, /mindst 2/);
+  assert.equal(host.round, 1, 'en afvist start tæller ikke runden op');
+
+  host.act('h', { type: 'lobby' });
+  host.act('h', { type: 'addBot' });
+  host.act('h', { type: 'start' });
+  assert.equal(host.game.phase, 'playing');
+});
+
+test('efter en vinder starter lobbyen et nyt spil', () => {
+  const { host } = makeHost();
+  join(host, 'c1', 'Far');
+  host.act('h', { type: 'settings', settings: { target: 100 } });
+  host.act('h', { type: 'start' });
+  winRound(host, 'c1', { id: 9010, color: null, value: 'wild' });
+  host.act('h', { type: 'start' });
+  winRound(host, 'c1', { id: 9011, color: null, value: 'wild' });
+  assert.equal(host.championId, 'c1');
+
+  host.act('h', { type: 'lobby' });
+  assert.equal(host.championId, null);
+  assert.deepEqual(host.scores, {});
+  host.act('h', { type: 'settings', settings: { target: 200 } });
+  assert.equal(host.settings.target, 200);
+});

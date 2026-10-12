@@ -57,6 +57,7 @@ const S = {
   selected: [], // kort valgt til at blive lagt sammen (samme tal/symbol)
   showRules: false,
   showInvite: false,
+  showMenu: false,
   lastLogId: 0,
   flashLog: false,
   lastRound: 0,
@@ -202,6 +203,7 @@ function leaveGame(notice = '') {
     screen: 'home',
     notice,
     picking: null,
+    showMenu: false,
     lastRound: 0,
     lastLogId: 0,
     lastGame: null,
@@ -214,6 +216,15 @@ function leaveGame(notice = '') {
 
 function setView(view) {
   const first = !S.view;
+  // En ny uddeling er en ny runde for animationerne – også når rundenummeret starter forfra.
+  if (view.game) view.game.deal = view.deal ?? view.game.round;
+  else S.showMenu = false;
+  // Fortæl de andre, hvis værten stoppede en runde, der var i gang.
+  const was = S.lastGame;
+  if (was?.phase === 'playing' && view.hostId !== S.me) {
+    if (!view.game) toast('Værten gik tilbage til lobbyen');
+    else if (view.game.deal !== was.deal) toast('Værten startede en ny runde');
+  }
   // Fra lobbyen til første runde: en tom "runde 0", så kortene deles ud.
   const prevGame = S.lastGame ?? (S.view && view.game ? { round: 0 } : null);
   // Hos værten deler visningen hånd med selve spillet, så gem en kopi til næste sammenligning.
@@ -222,8 +233,8 @@ function setView(view) {
   S.screen = 'play';
   const g = view.game;
   if (g) {
-    if (g.round !== S.lastRound) {
-      S.lastRound = g.round;
+    if (g.deal !== S.lastRound) {
+      S.lastRound = g.deal;
       S.lastLogId = 0;
     }
     const latest = g.log.at(-1)?.id ?? 0;
@@ -250,7 +261,7 @@ const sfx = (name, delay = 0) => setTimeout(() => sound.play(name), delay);
 
 // Lyde for det, der ikke er et kort i luften: UNO og rundens afslutning.
 function eventSounds(prev, g) {
-  if (!prev?.players || prev.round !== g.round) return;
+  if (!prev?.players || prev.deal !== g.deal) return;
   if (g.players.some((p) => p.saidUno && !prev.players.find((q) => q.id === p.id)?.saidUno)) sfx('uno', 200);
   if (prev.phase === 'playing' && g.phase === 'roundOver') sfx(g.winnerId === S.me ? 'win' : 'lose', 450);
 }
@@ -398,6 +409,7 @@ function render(prevGame = null) {
   }
   if (S.showRules) html += renderRules();
   if (S.showInvite && S.view) html += renderInvite(S.view);
+  if (S.showMenu && S.view?.game && S.role === 'host') html += renderHostMenu(S.view);
   app.innerHTML = html;
   S.flashLog = false;
 
@@ -475,7 +487,11 @@ function topBar(v) {
     <span class="bar-actions">
       <button class="icon" data-act="sound" aria-pressed="${sound.isOn()}" aria-label="Lyd">${sound.isOn() ? '🔊' : '🔇'}</button>
       <button class="icon" data-act="rules" aria-label="Regler">?</button>
-      <button class="btn ghost small" data-act="leave">${isHost ? 'Afslut' : 'Forlad'}</button>
+      ${
+        isHost && v.game
+          ? '<button class="btn ghost small" data-act="menu" aria-haspopup="dialog">Menu</button>'
+          : `<button class="btn ghost small" data-act="leave">${isHost ? 'Afslut' : 'Forlad'}</button>`
+      }
     </span>
   </header>`;
 }
@@ -511,6 +527,7 @@ function renderLobby(v) {
             <span class="pname">${esc(p.name)}${p.id === v.hostId ? ' 👑' : ''}${p.id === S.me ? ' <span class="muted">(dig)</span>' : ''}</span>
             ${p.bot ? '<span class="tag">computer</span>' : ''}
             ${p.connected ? '' : '<span class="muted">offline</span>'}
+            ${p.score ? `<span class="muted">${p.score} p</span>` : ''}
             ${isHost && p.id !== S.me ? `<button class="x" data-act="kick" data-id="${esc(p.id)}" aria-label="Fjern ${esc(p.name)}">✕</button>` : ''}
           </li>`,
           )
@@ -544,7 +561,9 @@ function renderLobby(v) {
     ${
       isHost
         ? `<button class="btn primary big" data-act="start" ${v.roster.length < 2 ? 'disabled' : ''}>${
-            v.roster.length < 2 ? 'Venter på spillere…' : `Start spil med ${v.roster.length} spillere`
+            v.roster.length < 2
+              ? 'Venter på spillere…'
+              : `${v.round ? 'Start næste runde' : 'Start spil'} med ${v.roster.length} spillere`
           }</button>`
         : `<p class="waiting">Venter på at ${esc(host?.name ?? 'værten')} starter spillet…</p>`
     }
@@ -717,12 +736,40 @@ function renderRoundOver(v) {
       </table>
       <p class="muted small">Først til ${target} point vinder</p>
       ${
-        isHost
-          ? champion
-            ? '<button class="btn primary big" data-act="new-game">Nyt spil (nulstil point)</button>'
-            : '<button class="btn primary big" data-act="start">Næste runde</button>'
-          : '<p class="waiting">Venter på at værten starter næste runde…</p>'
+        !isHost
+          ? '<p class="waiting">Venter på at værten starter næste runde…</p>'
+          : v.roster.length < 2
+            ? `<p class="hint">Der skal være mindst 2 spillere. Gå tilbage til lobbyen og vent på flere – eller tilføj en computerspiller.</p>
+               <button class="btn primary big" data-act="to-lobby">Tilbage til lobbyen</button>`
+            : `${
+                champion
+                  ? '<button class="btn primary big" data-act="new-game">Nyt spil (nulstil point)</button>'
+                  : '<button class="btn primary big" data-act="start">Næste runde</button>'
+              }
+               <button class="btn ghost" data-act="to-lobby">Tilbage til lobbyen</button>`
       }
+    </div>
+  </div>`;
+}
+
+// Værtens menu midt i spillet: der skal altid være en vej videre, også hvis runden er gået i stå.
+function renderHostMenu(v) {
+  const playing = v.game.phase === 'playing';
+  const enough = v.roster.length >= 2;
+  return `<div class="overlay" data-act="close-menu">
+    <div class="sheet host-menu" data-stop role="dialog" aria-modal="true" aria-labelledby="menu-title">
+      <h2 id="menu-title">Menu</h2>
+      ${
+        enough && !v.championId
+          ? `<button class="btn primary big" data-act="restart">🔄 Start ny runde</button>
+             <p class="hint">${playing ? 'Runden stoppes, og ingen får point for den. ' : ''}Pointene fra de andre runder bevares.</p>`
+          : ''
+      }
+      <button class="btn big" data-act="to-lobby">Tilbage til lobbyen</button>
+      <p class="hint">Hvis nye skal være med, eller I vil skifte regler. Pointene bevares.</p>
+      ${enough ? '<button class="btn big" data-act="new-game">Nyt spil (nulstil point)</button>' : ''}
+      <button class="btn ghost big" data-act="leave">Afslut spillet for alle</button>
+      <button class="btn ghost" data-act="close-menu">Luk</button>
     </div>
   </div>`;
 }
@@ -839,6 +886,7 @@ const actions = {
   leave() {
     const isHost = S.role === 'host';
     if (S.screen === 'play' && !confirm(isHost ? 'Afslut spillet for alle?' : 'Vil du forlade spillet?')) return;
+    S.showMenu = false;
     leaveGame();
   },
   share,
@@ -871,10 +919,34 @@ const actions = {
     render();
   },
   start() {
-    send({ type: 'start' });
+    // Er spillet vundet, er lobbyens startknap begyndelsen på et nyt spil.
+    send({ type: 'start', resetScores: Boolean(S.view?.championId) });
   },
   'new-game'() {
-    send({ type: 'start', resetScores: true });
+    const playing = S.view?.game?.phase === 'playing';
+    if (playing && !confirm('Start et helt nyt spil? Alle point nulstilles.')) return;
+    S.showMenu = false;
+    send({ type: 'start', resetScores: true, restart: true });
+  },
+  menu() {
+    S.showMenu = true;
+    render();
+  },
+  'close-menu'() {
+    S.showMenu = false;
+    render();
+  },
+  restart() {
+    const playing = S.view?.game?.phase === 'playing';
+    if (playing && !confirm('Stop runden og start en ny? Ingen får point for denne runde.')) return;
+    S.showMenu = false;
+    send({ type: 'start', restart: true });
+  },
+  'to-lobby'() {
+    const playing = S.view?.game?.phase === 'playing';
+    if (playing && !confirm('Stop runden og gå tilbage til lobbyen? Ingen får point for denne runde.')) return;
+    S.showMenu = false;
+    send({ type: 'lobby' });
   },
   kick(el) {
     const p = S.view.roster.find((r) => r.id === el.dataset.id);

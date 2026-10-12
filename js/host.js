@@ -39,6 +39,8 @@ export class Host {
     this.scores = saved?.scores ?? {};
     this.game = saved?.game ?? null;
     this.round = saved?.round ?? 0;
+    // Tæller hver nye uddeling – også når rundenummeret starter forfra – så telefonerne kan se, at kortene er nye.
+    this.deal = saved?.deal ?? this.round;
     this.conns = new Map();
     this.onView = onView ?? (() => {});
     this.onSave = onSave ?? (() => {});
@@ -48,8 +50,8 @@ export class Host {
   }
 
   snapshot() {
-    const { code, hostId, roster, settings, scores, game, round, championId, championName } = this;
-    return { code, hostId, roster, settings, scores, game, round, championId, championName };
+    const { code, hostId, roster, settings, scores, game, round, deal, championId, championName } = this;
+    return { code, hostId, roster, settings, scores, game, round, deal, championId, championName };
   }
 
   setChampion(id) {
@@ -122,20 +124,43 @@ export class Host {
     switch (action?.type) {
       case 'start': {
         if (!isHost) throw new G.GameError('Kun værten kan starte');
-        if (this.game?.phase === 'playing') throw new G.GameError('Runden er allerede i gang');
+        // restart: værten kan altid stoppe runden og starte en ny – fx hvis den er gået i stå.
+        // Den afbrudte runde giver ingen point.
+        if (this.game?.phase === 'playing' && !action.restart) throw new G.GameError('Runden er allerede i gang');
+        if (this.championId && !action.resetScores) throw new G.GameError('Spillet er slut – start et nyt spil');
+        // Tjekkes, før noget ændres, så en afvist start ikke nulstiller point eller tæller runden op.
+        if (this.roster.length < G.MIN_PLAYERS) {
+          throw new G.GameError(`Der skal være mindst ${G.MIN_PLAYERS} spillere – tilføj en computerspiller i lobbyen`);
+        }
         if (action.resetScores) {
           this.scores = {};
           this.championId = null;
           this.championName = null;
           this.round = 0;
-        } else if (this.championId) {
-          throw new G.GameError('Spillet er slut – start et nyt spil');
         }
+        this.stopTimers(); // ingen computerspiller må nå at trække i den gamle runde
+        this.catchTarget = null;
         this.round += 1;
+        this.deal += 1;
         this.game = G.newRound(this.roster, this.settings, {
           startIndex: (this.round - 1) % this.roster.length,
           round: this.round,
         });
+        return;
+      }
+      case 'lobby': {
+        // Stop runden og gå tilbage til lobbyen, så der kan komme nye spillere til eller skiftes regler.
+        if (!isHost) throw new G.GameError('Kun værten kan gå tilbage til lobbyen');
+        this.game = null;
+        this.catchTarget = null;
+        this.stopTimers();
+        if (this.championId) {
+          // Spillet var slut – lobbyen er starten på et nyt spil.
+          this.scores = {};
+          this.championId = null;
+          this.championName = null;
+          this.round = 0;
+        }
         return;
       }
       case 'settings': {
@@ -210,6 +235,7 @@ export class Host {
       hostId: this.hostId,
       me: playerId,
       round: this.round,
+      deal: this.deal,
       settings: this.settings,
       championId: this.championId,
       champion: this.championId ? { id: this.championId, name: this.championName } : null,
@@ -296,9 +322,13 @@ export class Host {
     if (catcher) this.act(catcher.id, { type: 'catch', targetId: target });
   }
 
-  shutdown() {
+  stopTimers() {
     for (const timer of this.timers.values()) this.cancel(timer);
     this.timers.clear();
+  }
+
+  shutdown() {
+    this.stopTimers();
     for (const conn of this.conns.values()) {
       conn.send({ t: 'ended' });
       conn.close();

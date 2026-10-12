@@ -1373,6 +1373,11 @@ body:has(.game) #app {
   transform: scale(0.95);
 }
 
+/* Forklaringen hører til knappen lige over den. */
+.host-menu .hint {
+  margin: calc(var(--sp-2) * -1) 0 var(--sp-1);
+}
+
 .result .winner {
   display: flex;
   align-items: center;
