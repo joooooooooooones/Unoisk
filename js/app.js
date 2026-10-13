@@ -1,4 +1,6 @@
 import { createTransport, makeCode, normalizeCode } from './net.js';
+import { lanHost, lanJoin, checkSignal, signalText, LINK_KEY } from './lan.js';
+import { startScanner } from './scan.js';
 import { Host, TARGETS, cleanName } from './host.js';
 import { COLORS, cardName, colorName, MAX_PLAYERS } from './game.js';
 import { AVATARS, validAvatar } from './avatars.js';
@@ -46,6 +48,13 @@ const S = {
   screen: 'home', // home | connecting | play
   role: null, // host | client
   code: null,
+  lan: false, // spil uden internet: telefonerne parres med QR-koder over samme Wi-Fi
+  lanOffer: null, // værtens QR-kode til næste spiller ('' = kunne ikke laves)
+  lanStep: null, // spilleren: scan (værtens kode) | making (laver svar) | show (viser svar til værten)
+  lanAnswer: null,
+  lanAttempt: null,
+  offerSeq: 0,
+  pendingOffer: null, // værtens kode fra et scannet link, til man har skrevet sit navn
   view: null,
   host: null,
   link: null,
@@ -73,9 +82,10 @@ function retryLater(fn, ms) {
   S.retry = setTimeout(fn, ms);
 }
 
-function startHost(code, saved = null) {
+function startHost(code, saved = null, lan = false) {
   S.role = 'host';
   S.code = code;
+  S.lan = lan;
   S.screen = 'connecting';
   S.online = false;
   S.host = new Host({
@@ -85,7 +95,7 @@ function startHost(code, saved = null) {
     onView: (view, msg) => (view ? setView(view) : handleMessage(msg)),
     onSave: (snapshot) => save(KEYS.host, snapshot),
   });
-  save(KEYS.session, { role: 'host', code });
+  save(KEYS.session, { role: 'host', code, lan });
   if (saved)
     S.host.broadcast(); // vis det gemte spil med det samme
   else render();
@@ -93,6 +103,7 @@ function startHost(code, saved = null) {
 }
 
 function openHostLink(fresh) {
+  if (S.lan) return openLanHost();
   let ready = false;
   S.link?.close();
   S.link = transport.host(S.code, {
@@ -118,6 +129,48 @@ function openHostLink(fresh) {
   });
 }
 
+// Uden internet: værten viser en QR-kode ad gangen; når en spiller er parret, laves en ny.
+function openLanHost() {
+  S.link?.close();
+  const link = (S.link = lanHost({ onConnection: (conn) => S.host.addConnection(conn) }));
+  S.online = true;
+  S.host.broadcast();
+  newOffer(link);
+}
+
+function newOffer(link = S.link) {
+  const seq = ++S.offerSeq;
+  S.lanOffer = null;
+  render();
+  link.offer().then(
+    (text) => {
+      if (S.link !== link || seq !== S.offerSeq) return;
+      S.lanOffer = text;
+      render();
+    },
+    (err) => {
+      if (S.link !== link || seq !== S.offerSeq) return;
+      S.lanOffer = '';
+      toast(err.message || 'Kunne ikke lave en QR-kode', 'error');
+      render();
+    },
+  );
+}
+
+// Fælles for begge slags forbindelser: forbindelsen til værten er åben.
+function attachConn(conn, onLost) {
+  S.conn = conn;
+  conn.onData(handleMessage);
+  conn.onClose(() => {
+    if (S.conn !== conn) return;
+    S.conn = null;
+    S.online = false;
+    render();
+    onLost();
+  });
+  conn.send({ t: 'join', id: S.me, name: S.name, emoji: S.avatar });
+}
+
 function startClient(code, resuming = false) {
   S.role = 'client';
   S.code = code;
@@ -128,18 +181,7 @@ function startClient(code, resuming = false) {
 
   S.link?.close();
   S.link = transport.join(code, {
-    onOpen: (conn) => {
-      S.conn = conn;
-      conn.onData(handleMessage);
-      conn.onClose(() => {
-        if (S.conn !== conn) return;
-        S.conn = null;
-        S.online = false;
-        render();
-        retryLater(() => startClient(S.code, true), 1500);
-      });
-      conn.send({ t: 'join', id: S.me, name: S.name, emoji: S.avatar });
-    },
+    onOpen: (conn) => attachConn(conn, () => retryLater(() => startClient(S.code, true), 1500)),
     onError: (err) => {
       if (S.role !== 'client') return;
       if (err === 'not-found' && !resuming && !S.view) {
@@ -154,10 +196,90 @@ function startClient(code, resuming = false) {
   });
 }
 
+// Uden internet: lav et svar på værtens kode og vis det som QR-kode, til værten har scannet det.
+function startLanClient(offer) {
+  clearTimeout(S.retry);
+  S.role = 'client';
+  S.lan = true;
+  S.online = false;
+  S.lanStep = 'making';
+  S.lanAnswer = null;
+  if (!S.view) S.screen = 'pair';
+  save(KEYS.session, { role: 'client', code: S.code ?? '', lan: true });
+  S.link?.close();
+  S.link = null;
+  render();
+
+  const attempt = (S.lanAttempt = {});
+  const current = () => S.lanAttempt === attempt && S.role === 'client';
+  lanJoin(offer, {
+    onOpen: (conn) => {
+      if (!current()) return conn.close();
+      S.lanStep = null;
+      S.lanAnswer = null;
+      attachConn(conn, () => {
+        S.lanStep = 'scan';
+        render();
+      });
+      render();
+    },
+    onError: () => {
+      if (!current()) return;
+      lanLost('Kunne ikke forbinde – er I på det samme Wi-Fi?');
+    },
+  }).then(
+    (link) => {
+      if (!current()) return link.close();
+      S.link = link;
+      if (S.lanStep !== 'making') return; // allerede forbundet
+      S.lanStep = 'show';
+      S.lanAnswer = link.answer;
+      render();
+    },
+    (err) => current() && lanLost(err.message),
+  );
+}
+
+function lanLost(message) {
+  S.lanStep = 'scan';
+  S.lanAnswer = null;
+  if (message) toast(message, 'error');
+  render();
+}
+
+function scanHostCode() {
+  openScanner({
+    title: 'Scan værtens QR-kode',
+    hint: 'Værten har koden i lobbyen – eller under 📶 øverst under spillet',
+    onText: (text) => {
+      checkSignal(text, 'o');
+      startLanClient(signalText(text));
+    },
+  });
+}
+
+function scanPlayerCode() {
+  openScanner({
+    title: 'Scan spillerens kode',
+    hint: 'Hold kameraet op mod QR-koden på den nye spillers telefon',
+    onText: (text) => {
+      const link = S.link;
+      const joining = link.accept(text); // kaster med det samme, hvis koden ikke passer
+      toast('Forbinder…');
+      newOffer(link);
+      joining.catch((err) => S.link === link && toast(err.message || 'Kunne ikke forbinde', 'error'));
+    },
+  });
+}
+
 function handleMessage(msg) {
   switch (msg?.t) {
     case 'state':
       S.online = true;
+      if (S.lan && S.role === 'client' && msg.view?.code && msg.view.code !== S.code) {
+        S.code = msg.view.code;
+        save(KEYS.session, { role: 'client', code: S.code, lan: true });
+      }
       return setView(msg.view);
     case 'error':
       return toast(msg.msg, 'error');
@@ -193,6 +315,7 @@ function leaveGame(notice = '') {
   S.host = null;
   if (role === 'client' && conn && !notice) conn.send({ t: 'leave' });
   if (host) host.shutdown();
+  closeScanner();
   setTimeout(() => link?.close(), 400);
   save(KEYS.session, null);
   if (role === 'host') save(KEYS.host, null);
@@ -205,6 +328,11 @@ function leaveGame(notice = '') {
     lastRound: 0,
     lastLogId: 0,
     lastGame: null,
+    lan: false,
+    lanOffer: null,
+    lanStep: null,
+    lanAnswer: null,
+    lanAttempt: null,
   });
   releaseWakeLock();
   render();
@@ -320,7 +448,7 @@ function cardHTML(card, { cls = '', act = '', order = 0, label = cardName(card) 
 }
 
 // QR-kode som SVG (biblioteket vendor/qrcode.js lægger 'qrcode' globalt).
-function qrSVG(text) {
+function qrSVG(text, label = 'QR-kode til at deltage i spillet', cls = '') {
   if (typeof qrcode !== 'function') return '';
   const qr = qrcode(0, 'M');
   qr.addData(text);
@@ -329,7 +457,7 @@ function qrSVG(text) {
   const q = 4; // hvid kant, så kameraet kan finde koden
   let d = '';
   for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (qr.isDark(r, c)) d += `M${c + q} ${r + q}h1v1h-1z`;
-  return `<svg class="qr" viewBox="0 0 ${n + 2 * q} ${n + 2 * q}" role="img" aria-label="QR-kode til at deltage i spillet" shape-rendering="crispEdges">
+  return `<svg class="qr ${cls}" viewBox="0 0 ${n + 2 * q} ${n + 2 * q}" role="img" aria-label="${esc(label)}" shape-rendering="crispEdges">
     <rect width="100%" height="100%" fill="#fff"/><path d="${d}" fill="#000"/></svg>`;
 }
 
@@ -338,6 +466,13 @@ function shareLink(code) {
   url.searchParams.set('rum', code);
   if (isLocal) url.searchParams.set('lokal', '');
   return url.toString();
+}
+
+// Værtens QR-kode uden internet er et link, så den også virker med telefonens almindelige kamera.
+function offerLink(offer) {
+  const url = new URL(location.pathname, location.origin);
+  if (isLocal) url.searchParams.set('lokal', '');
+  return `${url}#${LINK_KEY}=${encodeURIComponent(offer)}`;
 }
 
 function toast(text, kind = '') {
@@ -388,11 +523,13 @@ function render(prevGame = null) {
 
   let html;
   if (S.screen === 'home') html = renderHome();
-  else if (S.screen === 'connecting' || !S.view) html = renderConnecting();
+  else if (S.screen === 'pair' && !S.conn) html = renderPair();
+  else if (S.screen !== 'play' || !S.view) html = renderConnecting();
   else if (S.view.game) html = renderGame(S.view);
   else html = renderLobby(S.view);
 
-  if (S.screen === 'play' && !S.online) {
+  if (S.screen === 'play' && S.lan && S.role === 'client' && !S.conn) html += renderPairSheet();
+  else if (S.screen === 'play' && !S.online) {
     const what = S.role === 'host' ? 'Din forbindelse er tabt' : 'Ingen forbindelse til værten';
     html += `<div class="banner" role="alert">${what} – prøver igen…</div>`;
   }
@@ -446,12 +583,18 @@ function renderHome() {
           `<button type="button" role="radio" aria-checked="${a === S.avatar}" class="${a === S.avatar ? 'on' : ''}" data-act="avatar" data-emoji="${a}">${a}</button>`,
       ).join('')}
     </div>
-    ${session ? `<button class="btn primary big" data-act="resume">Fortsæt spil ${esc(session.code)}</button>` : ''}
-    <button class="btn ${session || code ? '' : 'primary'} big" data-act="create">Opret nyt spil</button>
+    ${S.pendingOffer ? '<button class="btn primary big" data-act="lan-join-link">📶 Deltag i spillet</button>' : ''}
+    ${session && !S.pendingOffer ? `<button class="btn primary big" data-act="resume">Fortsæt spil${session.code ? ` ${esc(session.code)}` : ''}</button>` : ''}
+    <button class="btn ${session || code || S.pendingOffer ? '' : 'primary'} big" data-act="create">Opret nyt spil</button>
     <div class="or"><span>eller deltag med en kode</span></div>
     <div class="join-row">
       <input id="code" maxlength="4" placeholder="ABCD" value="${esc(code)}" autocapitalize="characters" autocomplete="off" spellcheck="false" enterkeyhint="go">
       <button class="btn ${code && !session ? 'primary' : ''}" data-act="join">Deltag</button>
+    </div>
+    <div class="or"><span>uden internet – på samme Wi-Fi</span></div>
+    <div class="lan-row">
+      <button class="btn" data-act="lan-create">Opret spil</button>
+      <button class="btn" data-act="lan-join">📷 Scan og deltag</button>
     </div>
     <div id="install-slot">${installHTML()}</div>
     <button class="link" data-act="rules">Hvordan spiller man?</button>
@@ -459,7 +602,7 @@ function renderHome() {
 }
 
 function renderConnecting() {
-  const what = S.role === 'host' ? 'Opretter spil…' : `Forbinder til ${esc(S.code ?? '')}…`;
+  const what = S.role === 'host' ? 'Opretter spil…' : S.code ? `Forbinder til ${esc(S.code)}…` : 'Forbinder…';
   return `<main class="center">
     <div class="spinner"></div>
     <p>${what}</p>
@@ -467,11 +610,66 @@ function renderConnecting() {
   </main>`;
 }
 
+// Spilleren uden internet: vis værtens kode og spillerens svar, til de er parret.
+function pairHTML() {
+  if (S.lanStep === 'making') return '<div class="spinner"></div><p>Laver din kode…</p>';
+  if (S.lanStep === 'show')
+    return `<h2>Vis koden til værten</h2>
+      ${qrSVG(S.lanAnswer, 'Din QR-kode, som værten skal scanne', 'large')}
+      <p class="muted">Værten trykker <b>📷 Scan spiller</b> og scanner koden her.</p>
+      <p class="waiting-line"><span class="spinner small"></span> Venter på værten…</p>
+      ${copyButton(S.lanAnswer)}
+      <button class="btn ghost" data-act="lan-rescan">Scan værtens kode igen</button>`;
+  return `<h2>${S.view ? 'Forbindelsen til værten er tabt' : 'Scan værtens kode'}</h2>
+    <p class="muted">Bed værten trykke på <b>📶</b> øverst og vise sin QR-kode. Scan den, så kommer du tilbage med dine kort.</p>
+    <button class="btn primary big" data-act="lan-rescan">📷 Scan værtens kode</button>`;
+}
+
+function renderPair() {
+  return `<main class="center pair">
+    ${pairHTML()}
+    <button class="btn ghost" data-act="leave">Annuller</button>
+  </main>`;
+}
+
+function renderPairSheet() {
+  return `<div class="overlay">
+    <div class="sheet pair-sheet" role="dialog" aria-modal="true">
+      ${pairHTML()}
+      <button class="link" data-act="leave">Forlad spillet</button>
+    </div>
+  </div>`;
+}
+
+const copyButton = (text) =>
+  `<button class="link small" data-act="copy-code" data-text="${esc(text)}">Kameraet virker ikke? Del koden som tekst</button>`;
+
+// Værten uden internet: QR-kode til næste spiller og knappen til at scanne spillerens svar.
+function lanInviteHTML() {
+  const qr = S.lanOffer
+    ? qrSVG(offerLink(S.lanOffer), 'QR-kode, som den nye spiller scanner', 'large')
+    : S.lanOffer === ''
+      ? '<button class="btn small" data-act="lan-offer">Prøv igen</button>'
+      : '<div class="qr large qr-wait"><div class="spinner"></div></div>';
+  return `<div class="lan-invite">
+    ${qr}
+    <ol class="steps">
+      <li>Den nye spiller trykker <b>📷 Scan og deltag</b> og scanner koden.</li>
+      <li>Tryk <b>Scan spiller</b> og scan koden på spillerens telefon.</li>
+    </ol>
+    <button class="btn primary" data-act="scan-answer" ${S.lanOffer ? '' : 'disabled'}>📷 Scan spiller</button>
+    ${S.lanOffer ? copyButton(offerLink(S.lanOffer)) : ''}
+  </div>`;
+}
+
 function topBar(v) {
   const isHost = v.hostId === S.me;
+  const chip = S.lan
+    ? `<button class="code-chip" data-act="invite" aria-label="Uden internet – tilføj spillere"><b>📶</b> <span>Tilføj</span></button>`
+    : `<button class="code-chip" data-act="invite" aria-label="Inviter flere – kode ${esc(v.code)}"><span>Kode</span> <b>${esc(v.code)}</b></button>`;
   return `<header class="bar">
     <span class="logo small">UNO<span>isk</span></span>
-    <button class="code-chip" data-act="invite" aria-label="Inviter flere – kode ${esc(v.code)}"><span>Kode</span> <b>${esc(v.code)}</b></button>
+    ${chip}
     <span class="bar-actions">
       <button class="icon" data-act="sound" aria-pressed="${sound.isOn()}" aria-label="Lyd">${sound.isOn() ? '🔊' : '🔇'}</button>
       <button class="icon" data-act="rules" aria-label="Regler">?</button>
@@ -489,18 +687,22 @@ function renderLobby(v) {
       <span><b>${label}</b><small>${hint}</small></span>
     </label>`;
 
-  return `${topBar(v)}
-  <main class="lobby">
-    <section class="code-box">
-      <div class="invite">
+  const invite = !S.lan
+    ? `<div class="invite">
         ${qrSVG(shareLink(v.code))}
         <div>
           <div class="label">Scan med kameraet – eller skriv koden</div>
           <div class="big-code">${esc(v.code)}</div>
           <button class="btn small" data-act="share">Del link</button>
         </div>
-      </div>
-    </section>
+      </div>`
+    : isHost
+      ? `<div class="label">📶 Uden internet – alle skal være på det samme Wi-Fi</div>${lanInviteHTML()}`
+      : '<div class="label">📶 Forbundet over Wi-Fi – uden internet</div>';
+
+  return `${topBar(v)}
+  <main class="lobby">
+    <section class="code-box">${invite}</section>
     <section class="panel">
       <h2>Spillere <span class="muted">${v.roster.length}/${MAX_PLAYERS}</span></h2>
       <ul class="roster">
@@ -728,6 +930,21 @@ function renderRoundOver(v) {
 }
 
 function renderInvite(v) {
+  if (S.lan) {
+    const host = v.roster.find((p) => p.id === v.hostId);
+    const body =
+      v.hostId === S.me
+        ? lanInviteHTML()
+        : `<p class="muted">Uden internet er det værten, der tilføjer spillere. Bed ${esc(host?.name ?? 'værten')} trykke på 📶 øverst.</p>`;
+    return `<div class="overlay" data-act="close-invite">
+      <div class="sheet invite-sheet" data-stop role="dialog" aria-modal="true" aria-labelledby="invite-title">
+        <h2 id="invite-title">Tilføj spiller</h2>
+        ${body}
+        ${v.game ? '<p class="hint">Nye spillere kommer med, når den næste runde starter. En spiller, der har mistet forbindelsen, kommer tilbage med det samme.</p>' : ''}
+        <button class="btn ghost" data-act="close-invite">Luk</button>
+      </div>
+    </div>`;
+  }
   return `<div class="overlay" data-act="close-invite">
     <div class="sheet invite-sheet" data-stop role="dialog" aria-modal="true" aria-labelledby="invite-title">
       <h2 id="invite-title">Inviter flere</h2>
@@ -756,12 +973,38 @@ function renderRules() {
         <li>Den første uden kort vinder runden og får point for de andres kort (tal = værdien, action-kort = 20, sorte = 50). Den første, der når pointmålet, vinder – værten vælger 100, 200, 300 eller 500 (officielt).</li>
       </ol>
       <p class="muted small">Tip: Hold skærmen tændt under spillet. Mister nogen forbindelsen, kommer de automatisk tilbage, når de åbner siden igen. Tryk på 🔊 øverst for at slå lyden fra.</p>
+      <p class="muted small"><b>Uden internet:</b> Vær på det samme Wi-Fi (eller én telefons hotspot). Værten trykker <b>Opret spil</b> under "uden internet", de andre trykker <b>Scan og deltag</b> og scanner værtens QR-kode – og værten scanner så deres. Mister nogen forbindelsen, scanner man bare igen.</p>
       <button class="btn primary" data-act="close-rules">Forstået</button>
     </div>
   </div>`;
 }
 
 // ---------- Input ----------
+
+function createGame(lan) {
+  if (!readName()) return;
+  const session = load(KEYS.session);
+  if (
+    session &&
+    !confirm(
+      `Du har et spil i gang${session.code ? ` (${session.code})` : ''}. Vil du starte et nyt? Det gamle spil forsvinder.`,
+    )
+  )
+    return;
+  save(KEYS.host, null);
+  S.pendingOffer = null;
+  startHost(makeCode(), null, lan);
+}
+
+// Er man vært for et gemt spil, forsvinder det, hvis man deltager i et andet.
+function leaveHostingOk(code = null) {
+  const session = load(KEYS.session);
+  if (session?.role !== 'host' || session.code === code) return true;
+  if (!confirm(`Du er vært for spillet ${session.code}. Deltager du i et andet spil, forsvinder dit eget. Fortsæt?`))
+    return false;
+  save(KEYS.host, null);
+  return true;
+}
 
 function readName() {
   const name = cleanName(document.getElementById('name')?.value ?? S.name);
@@ -799,34 +1042,57 @@ const actions = {
     }
   },
   create() {
-    if (!readName()) return;
-    const session = load(KEYS.session);
-    if (
-      session &&
-      !confirm(`Du har et spil i gang (${session.code}). Vil du starte et nyt? Det gamle spil forsvinder.`)
-    )
-      return;
-    save(KEYS.host, null);
-    startHost(makeCode());
+    createGame(false);
+  },
+  'lan-create'() {
+    createGame(true);
   },
   join() {
     if (!readName()) return;
     const code = normalizeCode(document.getElementById('code')?.value);
     if (code.length !== 4) return toast('Koden er 4 bogstaver', 'error');
-    const session = load(KEYS.session);
-    if (
-      session?.role === 'host' &&
-      session.code !== code &&
-      !confirm(`Du er vært for spillet ${session.code}. Deltager du i et andet spil, forsvinder dit eget. Fortsæt?`)
-    )
-      return;
-    if (session?.role === 'host' && session.code !== code) save(KEYS.host, null);
+    if (!leaveHostingOk(code)) return;
     S.notice = '';
     startClient(code);
+  },
+  'lan-join'() {
+    if (!readName() || !leaveHostingOk()) return;
+    S.notice = '';
+    scanHostCode();
+  },
+  'lan-join-link'() {
+    if (!readName() || !leaveHostingOk()) return;
+    const offer = S.pendingOffer;
+    S.pendingOffer = null;
+    S.notice = '';
+    startLanClient(offer);
+  },
+  'lan-rescan'() {
+    scanHostCode();
+  },
+  'lan-offer'() {
+    newOffer();
+  },
+  'scan-answer'() {
+    scanPlayerCode();
+  },
+  async 'copy-code'(el) {
+    const text = el.dataset.text;
+    try {
+      if (navigator.share) return await navigator.share({ text });
+      await navigator.clipboard.writeText(text);
+      toast('Koden er kopieret');
+    } catch {
+      // Brugeren lukkede delingsdialogen.
+    }
   },
   resume() {
     const session = load(KEYS.session);
     if (!session || !readName()) return;
+    if (session.role === 'client' && session.lan) {
+      Object.assign(S, { role: 'client', lan: true, code: session.code, screen: 'pair', online: false });
+      return lanLost();
+    }
     if (session.role === 'client') return startClient(session.code, true);
     const saved = load(KEYS.host);
     if (!saved) {
@@ -834,7 +1100,7 @@ const actions = {
       S.notice = 'Det gemte spil kunne ikke findes på denne telefon. Opret et nyt spil.';
       return render();
     }
-    startHost(session.code, saved);
+    startHost(session.code, saved, !!session.lan);
   },
   leave() {
     const isHost = S.role === 'host';
@@ -987,11 +1253,83 @@ app.addEventListener('input', (e) => {
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible' || !S.role) return;
   keepAwake();
-  if (S.role === 'client' && !S.conn) {
+  if (S.role === 'client' && !S.conn && !S.lan) {
     clearTimeout(S.retry);
     startClient(S.code, true);
   }
 });
+
+// ---------- QR-scanner (uden internet) ----------
+
+// Scanneren ligger uden for #app, så kameraet ikke afbrydes, når skærmen tegnes om.
+let scanner = null;
+
+// onText kaster en fejl med en besked til brugeren, hvis koden ikke kan bruges – så scannes der videre.
+function openScanner({ title, hint, onText }) {
+  closeScanner();
+  const el = document.createElement('div');
+  el.className = 'overlay enter scan-overlay';
+  el.innerHTML = `<div class="sheet scan-sheet" role="dialog" aria-modal="true" aria-labelledby="scan-title">
+      <h2 id="scan-title">${esc(title)}</h2>
+      <div class="viewfinder"><video muted playsinline aria-hidden="true"></video><span class="aim" aria-hidden="true"></span></div>
+      <p class="scan-msg" role="status" aria-live="polite">${esc(hint)}</p>
+      <details class="paste">
+        <summary>Virker kameraet ikke?</summary>
+        <p class="hint">Tryk "Del koden som tekst" på den anden telefon, send den fx som sms, og indsæt den her.</p>
+        <textarea rows="3" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="Koden som tekst"></textarea>
+        <button class="btn small" data-scan="paste">Brug koden</button>
+      </details>
+      <button class="btn ghost" data-scan="close">Luk</button>
+    </div>`;
+  document.body.append(el);
+  const msg = el.querySelector('.scan-msg');
+  const state = (scanner = { el, stop: null, last: '' });
+
+  const handle = (text) => {
+    if (scanner !== state || text === state.last) return;
+    try {
+      onText(text);
+    } catch (err) {
+      state.last = text; // samme kode i billedet igen skal ikke give den samme fejl hele tiden
+      msg.textContent = err?.message || 'Koden kunne ikke bruges';
+      msg.classList.add('error');
+      navigator.vibrate?.(60);
+      return;
+    }
+    navigator.vibrate?.(30);
+    closeScanner();
+  };
+
+  el.addEventListener('click', (e) => {
+    const act = e.target.closest('[data-scan]')?.dataset.scan;
+    if (act === 'close') closeScanner();
+    if (act === 'paste') {
+      state.last = '';
+      handle(el.querySelector('textarea').value);
+    }
+  });
+
+  startScanner(el.querySelector('video'), handle).then(
+    (stop) => (scanner === state ? (state.stop = stop) : stop()),
+    (err) => {
+      if (scanner !== state) return;
+      msg.textContent =
+        err?.name === 'NotAllowedError'
+          ? 'Appen fik ikke lov til at bruge kameraet. Tillad kameraet i telefonens indstillinger – eller indsæt koden som tekst.'
+          : 'Kameraet kunne ikke startes. Indsæt koden som tekst i stedet.';
+      msg.classList.add('error');
+      el.querySelector('.viewfinder').hidden = true;
+      el.querySelector('details').open = true;
+    },
+  );
+}
+
+function closeScanner() {
+  if (!scanner) return;
+  scanner.stop?.();
+  scanner.el.remove();
+  scanner = null;
+}
 
 // ---------- Installation som app ----------
 
@@ -1030,9 +1368,38 @@ if ('serviceWorker' in navigator) {
 
 // ---------- Start ----------
 
+// Værtens QR-kode uden internet, scannet med telefonens almindelige kamera (…#wifi=…).
+// Returnerer koden, hvis adressen har en, og fjerner den fra adressen igen.
+function takeLinkOffer() {
+  if (!location.hash.startsWith(`#${LINK_KEY}=`)) return null;
+  const href = location.href;
+  history.replaceState(null, '', location.pathname + location.search);
+  try {
+    checkSignal(href, 'o');
+    return signalText(href);
+  } catch {
+    toast('QR-koden kunne ikke læses – scan værtens kode igen', 'error');
+    return null;
+  }
+}
+
+// Er appen allerede åben, skifter kun adressens #, og siden genindlæses ikke.
+addEventListener('hashchange', () => {
+  const offer = takeLinkOffer();
+  if (!offer) return;
+  if (S.role === 'client' && S.lan && !S.conn) return startLanClient(offer);
+  if (S.role) return toast('Du er allerede med i et spil');
+  S.pendingOffer = offer;
+  render();
+});
+
+S.pendingOffer = takeLinkOffer();
+
 const session = load(KEYS.session);
 const linkCode = normalizeCode(params.get('rum'));
-if (session && S.name && (!linkCode || linkCode === session.code)) {
+if (S.pendingOffer && S.name && session?.role !== 'host') {
+  actions['lan-join-link']();
+} else if (session && S.name && !S.pendingOffer && (!linkCode || linkCode === session.code)) {
   actions.resume(); // samme tjek som "Fortsæt": intet tomt spil, hvis de gemte data mangler
 } else {
   render();
