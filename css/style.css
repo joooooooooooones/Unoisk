@@ -428,6 +428,157 @@ input {
   }
 }
 
+.spinner.small {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border-width: 3px;
+  vertical-align: -2px;
+}
+
+/* ---------- Uden internet ---------- */
+
+.lan-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.lan-invite {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-top: var(--sp-2);
+}
+
+.qr.large {
+  width: min(240px, 66vw);
+  height: min(240px, 66vw);
+  margin: 0 auto;
+}
+
+.qr-wait {
+  display: grid;
+  place-items: center;
+  background: var(--surface-1);
+}
+
+.steps {
+  margin: 0;
+  padding-left: 1.4em;
+  text-align: left;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.steps li + li {
+  margin-top: var(--sp-1);
+}
+
+.lan-invite .btn.primary {
+  width: 100%;
+}
+
+.link.small {
+  font-size: var(--fs-sm);
+  padding: 4px;
+}
+
+.pair {
+  text-align: center;
+}
+
+.pair h2 {
+  margin: 0;
+  font-weight: 900;
+}
+
+.pair p {
+  margin: 0;
+  max-width: 340px;
+}
+
+.pair .btn.big {
+  max-width: 340px;
+}
+
+.waiting-line {
+  color: var(--muted);
+}
+
+.scan-overlay {
+  z-index: 26; /* over forbindelsesbanneret, under beskederne */
+}
+
+.viewfinder {
+  position: relative;
+  width: min(300px, 76vw);
+  aspect-ratio: 1;
+  margin: 0 auto;
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  background: #000;
+}
+
+.viewfinder[hidden] {
+  display: none;
+}
+
+.viewfinder video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.aim {
+  position: absolute;
+  inset: 14%;
+  border: 3px solid rgba(255, 255, 255, 0.85);
+  border-radius: var(--r-md);
+  box-shadow: 0 0 0 999px rgba(0, 0, 0, 0.25);
+}
+
+.scan-msg {
+  margin: 0;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.scan-msg.error {
+  color: #ffb4ab;
+}
+
+.paste {
+  text-align: left;
+  font-size: var(--fs-sm);
+}
+
+.paste summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-weight: 700;
+  min-height: var(--touch);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.paste textarea {
+  width: 100%;
+  margin: var(--sp-2) 0;
+  padding: 8px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: var(--field);
+  color: var(--ink-dark);
+  font:
+    600 var(--fs-xs) / 1.3 ui-monospace,
+    monospace;
+  word-break: break-all;
+}
+
 /* ---------- Topbar ---------- */
 
 .bar {

@@ -22,6 +22,24 @@ UNO for hele familien – hver spiller på sin egen telefon. 2–10 spillere (la
 
 På iPhone: åbn linket i Safari, tryk **Del** og vælg **Føj til hjemmeskærm**.
 
+Appen gemmer sig selv på telefonen, så den også starter uden internet. Åbn den bare én gang med internet først (og igen engang imellem, så den bliver opdateret).
+
+## Spil uden internet (samme Wi-Fi)
+
+I sommerhuset, i bilen eller i flyet: telefonerne kan snakke direkte sammen over det samme Wi-Fi – uden internet og uden nogen server. Det kan være et almindeligt Wi-Fi uden internetforbindelse, eller én telefons hotspot (mobildata behøver ikke være slået til).
+
+1. **Værten** trykker **Opret spil** under *uden internet – på samme Wi-Fi*. Lobbyen viser en QR-kode.
+2. **Den nye spiller** trykker **📷 Scan og deltag** og scanner værtens QR-kode. Så viser spillerens telefon sin egen QR-kode.
+3. **Værten** trykker **📷 Scan spiller** og scanner spillerens kode. Så er spilleren med, og der kommer en ny QR-kode frem til den næste.
+
+Har spilleren allerede åbnet appen én gang, kan værtens QR-kode også scannes med telefonens almindelige kamera. Virker kameraet ikke, kan koden deles som tekst (fx sms) under QR-koden.
+
+Godt at vide uden internet:
+
+- Mister en spiller forbindelsen (eller genindlæser værten siden), er kortene og pointene der stadig – man skal bare parres igen: værten trykker **📶** øverst, og spilleren scanner koden som før.
+- Det virker ikke på netværk, hvor enhederne ikke må se hinanden (fx nogle gæste-netværk på hoteller). Brug så én telefons hotspot.
+- Laver værtens telefon selv hotspottet, og vil forbindelsen ikke komme, så lad en af de andre telefoner lave hotspot i stedet.
+
 ## Sådan spiller I
 
 - Skriv dit navn og vælg en figur (🦊 🐻 🦄 …), så man kan kende hinanden.
@@ -53,7 +71,7 @@ Ingen build-trin – bare HTML, CSS og JavaScript-moduler.
 
 ```sh
 npm start   # starter en lokal server på http://localhost:8080
-npm test    # regler, point, vært og computerspillere (kræver Node 20+)
+npm test    # regler, point, vært, computerspillere og QR-koderne til spil uden internet (kræver Node 20+)
 ```
 
 Åbn `http://localhost:8080/?lokal` i flere faner for at teste uden internet: så snakker fanerne sammen via `BroadcastChannel` i stedet for WebRTC.
@@ -65,9 +83,12 @@ npm test    # regler, point, vært og computerspillere (kræver Node 20+)
 | `js/bot.js` | Computerspillernes strategi (ser kun det, en spiller må se) |
 | `js/avatars.js` | Figurer, man kan vælge |
 | `js/net.js` | Forbindelser – PeerJS eller lokal testtilstand |
+| `js/lan.js` | Spil uden internet: WebRTC direkte over Wi-Fi, parret med små QR-koder |
+| `js/scan.js` | QR-scanner med kameraet (BarcodeDetector eller jsQR) |
 | `js/app.js` | Brugerfladen |
 | `sw.js`, `manifest.webmanifest`, `icons/` | Gør spillet installerbart som app |
 | `test/golden.test.js` | Golden master: faste, seedede spil skal give samme resultat (opdatér med `UPDATE_GOLDEN=1 npm test` ved en bevidst regelændring) |
 | `vendor/peerjs.min.js` | PeerJS 1.5.4 (MIT-licens) |
 | `vendor/qrcode.js` | qrcode-generator 1.4.4 (MIT-licens) |
+| `vendor/jsQR.min.js` | jsQR 1.4.0, minificeret (Apache-2.0) – læser QR-koder på iPhone |
 | `vendor/fonts/` | Nunito (SIL Open Font License) |
